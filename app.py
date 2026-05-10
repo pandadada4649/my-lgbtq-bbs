@@ -1,12 +1,27 @@
+import json
+import os
 from flask import Flask, render_template_string, request, redirect
 
 app = Flask(__name__)
 
-events = []
+# データ保存用のファイル名
+DATA_FILE = 'events.json'
+
+def load_events():
+    """ファイルからイベントを読み込む"""
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def save_events(events):
+    """ファイルにイベントを保存する"""
+    with open(DATA_FILE, 'w', encoding='utf-8') as f:
+        json.dump(events, f, ensure_ascii=False, indent=4)
 
 @app.route('/')
 def index():
-    # デザインを大幅に強化したHTML
+    events = load_events()
     html = """
     <!DOCTYPE html>
     <html lang="ja">
@@ -27,7 +42,7 @@ def index():
     </head>
     <body>
         <nav class="navbar navbar-dark mb-4">
-            <div class="container">
+            <div class="container text-center">
                 <span class="navbar-brand mb-0 h1">🌈 LGBTQ+ イベント掲示板</span>
             </div>
         </nav>
@@ -35,42 +50,42 @@ def index():
         <div class="container">
             <div class="row">
                 <div class="col-md-4">
-                    <div class="card p-4 mb-4">
+                    <div class="card p-4 mb-4 shadow-sm">
                         <h4 class="mb-3">イベントを投稿</h4>
                         <form method="POST" action="/post">
                             <div class="mb-3">
-                                <label class="form-label">イベント名</label>
-                                <input type="text" name="title" class="form-control" placeholder="交流会、パレードなど" required>
+                                <label class="form-label small fw-bold">イベント名</label>
+                                <input type="text" name="title" class="form-control" placeholder="交流会など" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">開催日</label>
-                                <input type="text" name="date" class="form-control" placeholder="2026年6月1日" required>
+                                <label class="form-label small fw-bold">開催日</label>
+                                <input type="text" name="date" class="form-control" placeholder="6月1日" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">場所</label>
+                                <label class="form-label small fw-bold">場所</label>
                                 <input type="text" name="place" class="form-control" placeholder="大阪・堂山町" required>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">詳細</label>
-                                <textarea name="detail" class="form-control" rows="3" placeholder="イベントの内容や参加方法"></textarea>
+                                <label class="form-label small fw-bold">詳細</label>
+                                <textarea name="detail" class="form-control" rows="3"></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">公開する</button>
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">公開する</button>
                         </form>
                     </div>
                 </div>
 
                 <div class="col-md-8">
-                    <h4 class="mb-3">最新のイベント一覧</h4>
+                    <h4 class="mb-3 fw-bold text-secondary">最新のイベント一覧</h4>
                     {% if not events %}
-                        <p class="text-muted">まだ投稿がありません。最初のイベントを投稿してみよう！</p>
+                        <div class="alert alert-light border shadow-sm">まだ投稿がありません。</div>
                     {% endif %}
                     {% for ev in events %}
-                        <div class="card mb-3">
+                        <div class="card mb-3 shadow-sm">
                             <div class="card-body">
-                                <span class="badge badge-date mb-2">{{ ev.date }}</span>
-                                <h5 class="card-title">{{ ev.title }}</h5>
+                                <span class="badge badge-date mb-2 text-white">{{ ev.date }}</span>
+                                <h5 class="card-title fw-bold">{{ ev.title }}</h5>
                                 <h6 class="card-subtitle mb-2 text-muted">📍 {{ ev.place }}</h6>
-                                <p class="card-text">{{ ev.detail }}</p>
+                                <p class="card-text text-secondary" style="white-space: pre-wrap;">{{ ev.detail }}</p>
                             </div>
                         </div>
                     {% endfor %}
@@ -84,6 +99,7 @@ def index():
 
 @app.route('/post', methods=['POST'])
 def post():
+    events = load_events()
     new_event = {
         "title": request.form.get('title'),
         "date": request.form.get('date'),
@@ -91,6 +107,7 @@ def post():
         "detail": request.form.get('detail')
     }
     events.insert(0, new_event)
+    save_events(events)  # ファイルに保存！
     return redirect('/')
 
 if __name__ == '__main__':
