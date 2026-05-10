@@ -21,12 +21,12 @@ def save_events(events):
 
 # カテゴリ設定（マークと名前）
 CATEGORIES = [
-    {"id": "lgbtq", "name": "LGBTQ（誰でもOK）", "icon": "🌈"},
-    {"id": "lesbian", "name": "レズビアン", "icon": "👩‍❤️‍👩"},
-    {"id": "gay", "name": "ゲイ", "icon": "👨‍❤️‍👨"},
-    {"id": "bi", "name": "バイセクシャル", "icon": "💖💜💙"},
-    {"id": "trans", "name": "トランスジェンダー", "icon": "🏳️‍⚧️"},
-    {"id": "queer", "name": "クィア", "icon": "✨"}
+    {"id": "lgbtq", "name": "LGBTQ（誰でもOK）", "icon_path": "icon_all.png"},
+    {"id": "lesbian", "name": "レズビアン", "icon_path": "icon_les.png"},
+    {"id": "gay", "name": "ゲイ", "icon_path": "icon_gay.png"},
+    {"id": "bi", "name": "バイセクシャル", "icon_path": "icon_bi.png"},
+    {"id": "trans", "name": "トランスジェンダー", "icon_path": "icon_trans.png"},
+    {"id": "queer", "name": "クィア", "icon_path": "icon_queer.png"}
 ]
 
 HTML_TEMPLATE = """
