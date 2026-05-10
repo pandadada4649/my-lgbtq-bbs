@@ -1,10 +1,11 @@
 import json
 import os
-from from flask import Flask, render_template_string, request, redirect, url_for
+from flask import Flask, render_template_string, request, redirect, url_for
 
 app = Flask(__name__)
 
 DATA_FILE = 'events.json'
+# --- 以下、あなたのコードと同じ ---
 
 def load_events():
     if os.path.exists(DATA_FILE):
