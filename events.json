@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "category": "lesbian",
+    "title": "Lesbian Talk Night",
+    "date": "2026.05.25 (土) 19:00〜",
+    "location": "オンライン",
+    "image_url": "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=500",
+    "tags": ["交流会"],
+    "description": "リラックスした雰囲気で楽しくお話ししましょう。"
+  },
+  {
+    "id": 2,
+    "category": "gay",
+    "title": "Gay Bar Meetup",
+    "date": "2026.05.18 (月) 21:00〜",
+    "location": "大阪・北区",
+    "image_url": "https://images.unsplash.com/photo-1514525253361-bee8d48700df?w=500",
+    "tags": ["パブ", "交流"],
+    "description": "仕事帰りにふらっと寄れる交流会です。"
+  }
+]
