@@ -98,4 +98,7 @@ def index():
     return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    # Renderが指定するポート番号を読み取る設定
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
