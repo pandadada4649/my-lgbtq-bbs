@@ -1,6 +1,7 @@
 import json
 import os
-import urllib.parse # 追加：SNSシェア用
+import urllib.parse
+import datetime
 from flask import Flask, render_template_string, request, redirect, url_for
 from werkzeug.utils import secure_filename
 
@@ -30,7 +31,6 @@ categories = [
     {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
-# --- デザイン（微調整：背景をグラデーションに） ---
 COMMON_STYLE = '''
 <style>
     body { 
@@ -84,7 +84,7 @@ INDEX_TEMPLATE = '''
                     <a href="/event/{{ event.id }}"><img src="{{ event.image_url }}" class="card-img-top event-image"></a>
                     <div class="card-body p-4">
                         <div class="d-flex justify-content-between">
-                            <span class="badge bg-light text-secondary rounded-pill mb-2">{{ event.category }}</span>
+                            <span class="badge bg-light text-secondary rounded-pill mb-2">{{ event.category|capitalize }}</span>
                             <small class="text-muted"><i class="bi bi-chat-dots"></i> {{ event.comments|length }}</small>
                         </div>
                         <h5 class="card-title fw-bold"><a href="/event/{{ event.id }}" class="text-decoration-none text-dark">{{ event.title }}</a></h5>
@@ -127,7 +127,6 @@ DETAIL_TEMPLATE = '''
             <div class="card-body p-5">
                 <div class="d-flex justify-content-between align-items-start mb-4">
                     <h1 class="fw-bold">{{ event.title }}</h1>
-                    <!-- Xシェアボタン -->
                     <a href="https://twitter.com/share?url={{ share_url }}&text={{ share_text }}" 
                        target="_blank" class="btn btn-dark rounded-pill px-4">
                         <i class="bi bi-twitter-x"></i> Share
@@ -137,7 +136,6 @@ DETAIL_TEMPLATE = '''
                 <hr class="my-4">
                 <p style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細なし" }}</p>
                 
-                <!-- コメントセクション -->
                 <div class="mt-5 pt-5 border-top">
                     <h5 class="fw-bold mb-4"><i class="bi bi-chat-left-text"></i> コメント ({{ event.comments|length }})</h5>
                     {% for comment in event.comments %}
@@ -163,6 +161,7 @@ DETAIL_TEMPLATE = '''
 </html>
 '''
 
+# POST_TEMPLATE の select 部分を修正
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -179,7 +178,7 @@ POST_TEMPLATE = '''
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">カテゴリ</label>
                     <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}
+                        {% for cat in categories %}
                         <option value="{{ cat.id }}">{{ cat.name }}</option>
                         {% endfor %}
                     </select>
@@ -201,7 +200,6 @@ POST_TEMPLATE = '''
 </html>
 '''
 
-# --- ルート設定 ---
 @app.route('/')
 def index():
     all_events = load_events()
@@ -230,11 +228,12 @@ def post():
             "location": request.form.get('location'),
             "image_url": image_url,
             "tags": [t.strip() for t in request.form.get('tags').split(',')] if request.form.get('tags') else [],
-            "comments": [] # コメント用配列を初期化
+            "comments": []
         }
         events.append(new_event)
         save_events(events)
         return redirect(url_for('index'))
+    # ここで if cat.id != 'all' を削除した全カテゴリを渡します
     return render_template_string(POST_TEMPLATE, categories=categories)
 
 @app.route('/event/<int:event_id>')
@@ -242,21 +241,15 @@ def event_detail(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
     if event is None: return "NotFound", 404
-    
-    # シェア用のテキストとURLを作成
     share_text = urllib.parse.quote(f"🌈 LGBTQ+ イベント：{event['title']}")
     share_url = urllib.parse.quote(request.url)
-    
     return render_template_string(DETAIL_TEMPLATE, event=event, share_text=share_text, share_url=share_url)
 
-# --- コメント投稿用ルート ---
 @app.route('/comment/<int:event_id>', methods=['POST'])
 def add_comment(event_id):
     events = load_events()
     comment_text = request.form.get('comment')
-    import datetime
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-    
     for e in events:
         if e.get('id') == event_id:
             if 'comments' not in e: e['comments'] = []
