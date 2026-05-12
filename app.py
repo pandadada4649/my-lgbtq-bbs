@@ -11,6 +11,9 @@ JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# 管理用パスワード（必要に応じてここを好きな文字列に変えてください）
+ADMIN_PASSWORD = "soyoka_admin" 
+
 def load_events():
     if not os.path.exists(JSON_PATH): return []
     with open(JSON_PATH, 'r', encoding='utf-8') as f: return json.load(f)
@@ -28,7 +31,7 @@ categories = [
     {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
-# --- INDEX_TEMPLATE（削除ボタンと詳細へのリンクを追加） ---
+# --- INDEX_TEMPLATE（削除ボタンをパスワード入力式に変更） ---
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -45,9 +48,9 @@ INDEX_TEMPLATE = '''
         .nav-link.active { background-color: #ff6b81 !important; color: #fff !important; }
         .filter-icon { width: 24px; height: 24px; display: block; margin: 0 auto 3px; }
         .nav-link.active .filter-icon { filter: brightness(0) invert(1); }
-        .card { border: none; border-radius: 20px; overflow: hidden; transition: 0.2s; background: #fff; position: relative; }
+        .card { border: none; border-radius: 20px; overflow: hidden; transition: 0.2s; background: #fff; }
         .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-        .event-image { height: 200px; object-fit: cover; cursor: pointer; }
+        .event-image { height: 200px; object-fit: cover; }
         .badge-tag { background-color: #fce7f3; color: #db2777; border: none; }
         .post-button {
             position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
@@ -55,9 +58,7 @@ INDEX_TEMPLATE = '''
             display: flex; align-items: center; justify-content: center;
             font-size: 30px; box-shadow: 0 5px 15px rgba(255,107,129,0.4); z-index: 1000; text-decoration: none;
         }
-        /* 削除ボタンのスタイル */
-        .btn-delete { color: #ff6b81; font-size: 0.8rem; text-decoration: none; border: none; background: none; padding: 0; }
-        .btn-delete:hover { color: #d63384; }
+        .btn-delete { color: #ff6b81; font-size: 0.8rem; border: none; background: none; padding: 0; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -88,10 +89,14 @@ INDEX_TEMPLATE = '''
                             <div class="d-flex flex-wrap gap-1">
                                 {% for tag in event.tags %}<span class="badge badge-tag rounded-pill">{{ tag }}</span>{% endfor %}
                             </div>
-                            <!-- 削除ボタン（ゴミ箱アイコン） -->
-                            <a href="/delete/{{ event.id }}" class="btn-delete" onclick="return confirm('このイベントを削除してよろしいですか？')">
-                                <i class="bi bi-trash"></i> 削除
-                            </a>
+                            <!-- 削除用フォーム（パスワードをプロンプトで受け取る） -->
+                            <form action="/delete/{{ event.id }}" method="POST" style="display: inline;" 
+                                  onsubmit="const pw = prompt('管理用パスワードを入力してください'); if(pw){ this.password.value = pw; return true; } return false;">
+                                <input type="hidden" name="password" value="">
+                                <button type="submit" class="btn-delete">
+                                    <i class="bi bi-trash"></i> 削除
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -110,31 +115,22 @@ DETAIL_TEMPLATE = '''
 <html lang="ja">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ event.title }} - 詳細</title>
+    <title>{{ event.title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>body { background-color: #fef1f2; color: #444; }</style>
 </head>
 <body>
     <div class="container py-5" style="max-width: 800px;">
-        <div class="card shadow border-0 overflow-hidden" style="border-radius: 25px; background: #fff;">
+        <div class="card shadow border-0 overflow-hidden" style="border-radius: 25px;">
             <img src="{{ event.image_url }}" class="img-fluid w-100" style="max-height: 450px; object-fit: cover;">
             <div class="card-body p-5">
-                <div class="mb-4">
-                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3">{{ event.category }}</span>
-                </div>
                 <h1 class="fw-bold mb-4">{{ event.title }}</h1>
-                <div class="row mb-5 text-muted">
-                    <div class="col-sm-6"><i class="bi bi-calendar3 me-2"></i> {{ event.date }}</div>
-                    <div class="col-sm-6"><i class="bi bi-geo-alt me-2"></i> {{ event.location }}</div>
-                </div>
-                <h5 class="fw-bold mb-3">イベント詳細</h5>
-                <p class="mb-5" style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細な説明はありません。" }}</p>
-                <div class="d-flex flex-wrap gap-2 mb-5">
-                    {% for tag in event.tags %}<span class="badge rounded-pill bg-light text-secondary px-3 py-2">#{{ tag }}</span>{% endfor %}
-                </div>
-                <div class="d-grid pt-3 border-top">
-                    <a href="/" class="btn btn-outline-secondary btn-lg rounded-pill">掲示板に戻る</a>
+                <p class="text-muted mb-4"><i class="bi bi-calendar3"></i> {{ event.date }} / <i class="bi bi-geo-alt"></i> {{ event.location }}</p>
+                <hr>
+                <p style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細な説明はありません。" }}</p>
+                <div class="mt-5 pt-3 border-top d-grid">
+                    <a href="/" class="btn btn-outline-secondary btn-lg rounded-pill">戻る</a>
                 </div>
             </div>
         </div>
@@ -143,7 +139,7 @@ DETAIL_TEMPLATE = '''
 </html>
 '''
 
-# --- POST_TEMPLATE（説明欄の textarea を追加） ---
+# --- POST_TEMPLATE ---
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -164,17 +160,13 @@ POST_TEMPLATE = '''
                         <option value="queer">Queer</option>
                     </select>
                 </div>
-                <div class="mb-3"><label class="form-label">日付</label><input type="text" name="date" class="form-control" placeholder="2026.05.25 (土) 19:00〜"></div>
+                <div class="mb-3"><label class="form-label">日付</label><input type="text" name="date" class="form-control"></div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
-                
-                <!-- 追加：詳細な説明欄 -->
-                <div class="mb-3"><label class="form-label">詳細な説明</label><textarea name="description" class="form-control" rows="5" placeholder="イベントの内容について詳しく書いてください"></textarea></div>
-
+                <div class="mb-3"><label class="form-label">詳細な説明</label><textarea name="description" class="form-control" rows="5"></textarea></div>
                 <div class="mb-3"><label class="form-label">イベント画像</label><input type="file" name="image" class="form-control" accept="image/*"></div>
-                <div class="mb-3"><label class="form-label">タグ（カンマ区切り）</label><input type="text" name="tags" class="form-control" placeholder="交流会, パレード"></div>
+                <div class="mb-3"><label class="form-label">タグ（カンマ区切り）</label><input type="text" name="tags" class="form-control"></div>
                 <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold" style="background:#ff6b81; border:none;">投稿する</button>
             </form>
-            <div class="mt-4 text-center"><a href="/" class="text-decoration-none text-muted">キャンセル</a></div>
         </div>
     </div>
 </body>
@@ -202,10 +194,10 @@ def post():
             image_url = '/static/uploads/' + filename
 
         new_event = {
-            "id": int(os.urandom(4).hex(), 16), # ランダムな数値ID
+            "id": int(os.urandom(4).hex(), 16),
             "category": request.form.get('category'),
             "title": request.form.get('title'),
-            "description": request.form.get('description'), # 追加
+            "description": request.form.get('description'),
             "date": request.form.get('date'),
             "location": request.form.get('location'),
             "image_url": image_url,
@@ -216,7 +208,6 @@ def post():
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE)
 
-# --- 新機能：詳細ページへのルート ---
 @app.route('/event/<int:event_id>')
 def event_detail(event_id):
     events = load_events()
@@ -224,13 +215,18 @@ def event_detail(event_id):
     if event is None: return "Event Not Found", 404
     return render_template_string(DETAIL_TEMPLATE, event=event)
 
-# --- 新機能：削除ルート ---
-@app.route('/delete/<int:event_id>')
+# --- 削除ルート（パスワード認証付き） ---
+@app.route('/delete/<int:event_id>', methods=['POST'])
 def delete_event(event_id):
-    events = load_events()
-    filtered_events = [e for e in events if e.get('id') != event_id]
-    save_events(filtered_events)
-    return redirect(url_for('index'))
+    input_password = request.form.get('password')
+    
+    if input_password == ADMIN_PASSWORD:
+        events = load_events()
+        filtered_events = [e for e in events if e.get('id') != event_id]
+        save_events(filtered_events)
+        return redirect(url_for('index'))
+    else:
+        return "パスワードが正しくありません。", 403
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
