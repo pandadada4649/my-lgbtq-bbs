@@ -1,24 +1,20 @@
 import json
 import os
 from flask import Flask, render_template_string, request, redirect, url_for
-from werkzeug.utils import secure_filename # 追加：ファイル名を安全にするため
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
-# --- 設定の追加 ---
+# --- 設定 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads') # 保存先フォルダ
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# 1. データを読み込む
 def load_events():
-    if not os.path.exists(JSON_PATH):
-        return []
-    with open(JSON_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    if not os.path.exists(JSON_PATH): return []
+    with open(JSON_PATH, 'r', encoding='utf-8') as f: return json.load(f)
 
-# 2. データを保存する
 def save_events(events):
     with open(JSON_PATH, 'w', encoding='utf-8') as f:
         json.dump(events, f, ensure_ascii=False, indent=2)
@@ -32,7 +28,7 @@ categories = [
     {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
-# INDEX_TEMPLATE はそのまま（省略せずに書きます）
+# --- INDEX_TEMPLATE（削除ボタンと詳細へのリンクを追加） ---
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -49,9 +45,9 @@ INDEX_TEMPLATE = '''
         .nav-link.active { background-color: #ff6b81 !important; color: #fff !important; }
         .filter-icon { width: 24px; height: 24px; display: block; margin: 0 auto 3px; }
         .nav-link.active .filter-icon { filter: brightness(0) invert(1); }
-        .card { border: none; border-radius: 20px; overflow: hidden; transition: 0.2s; background: #fff; }
+        .card { border: none; border-radius: 20px; overflow: hidden; transition: 0.2s; background: #fff; position: relative; }
         .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-        .event-image { height: 200px; object-fit: cover; }
+        .event-image { height: 200px; object-fit: cover; cursor: pointer; }
         .badge-tag { background-color: #fce7f3; color: #db2777; border: none; }
         .post-button {
             position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
@@ -59,12 +55,14 @@ INDEX_TEMPLATE = '''
             display: flex; align-items: center; justify-content: center;
             font-size: 30px; box-shadow: 0 5px 15px rgba(255,107,129,0.4); z-index: 1000; text-decoration: none;
         }
+        /* 削除ボタンのスタイル */
+        .btn-delete { color: #ff6b81; font-size: 0.8rem; text-decoration: none; border: none; background: none; padding: 0; }
+        .btn-delete:hover { color: #d63384; }
     </style>
 </head>
 <body>
     <div class="container py-5">
         <h1 class="text-center fw-bold mb-5">LGBTQ+ イベント掲示板</h1>
-        
         <ul class="nav nav-pills justify-content-center mb-5">
             {% for cat in categories %}
             <li class="nav-item">
@@ -75,19 +73,25 @@ INDEX_TEMPLATE = '''
             </li>
             {% endfor %}
         </ul>
-
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
             {% for event in events %}
             <div class="col">
                 <div class="card h-100 shadow-sm">
-                    <img src="{{ event.image_url }}" class="card-img-top event-image">
+                    <a href="/event/{{ event.id }}"><img src="{{ event.image_url }}" class="card-img-top event-image"></a>
                     <div class="card-body p-4">
                         <span class="badge bg-light text-secondary rounded-pill mb-2">{{ event.category }}</span>
-                        <h5 class="card-title fw-bold">{{ event.title }}</h5>
+                        <h5 class="card-title fw-bold"><a href="/event/{{ event.id }}" class="text-decoration-none text-dark">{{ event.title }}</a></h5>
                         <p class="small text-muted mb-1"><i class="bi bi-calendar3"></i> {{ event.date }}</p>
                         <p class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
-                        <div class="d-flex flex-wrap gap-1">
-                            {% for tag in event.tags %}<span class="badge badge-tag rounded-pill">{{ tag }}</span>{% endfor %}
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for tag in event.tags %}<span class="badge badge-tag rounded-pill">{{ tag }}</span>{% endfor %}
+                            </div>
+                            <!-- 削除ボタン（ゴミ箱アイコン） -->
+                            <a href="/delete/{{ event.id }}" class="btn-delete" onclick="return confirm('このイベントを削除してよろしいですか？')">
+                                <i class="bi bi-trash"></i> 削除
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -95,13 +99,51 @@ INDEX_TEMPLATE = '''
             {% endfor %}
         </div>
     </div>
-
     <a href="/post" class="post-button"><i class="bi bi-plus-lg"></i></a>
 </body>
 </html>
 '''
 
-# 修正ポイント：enctypeを追加し、画像URLをファイル選択に変更
+# --- DETAIL_TEMPLATE（詳細ページ） ---
+DETAIL_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} - 詳細</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>body { background-color: #fef1f2; color: #444; }</style>
+</head>
+<body>
+    <div class="container py-5" style="max-width: 800px;">
+        <div class="card shadow border-0 overflow-hidden" style="border-radius: 25px; background: #fff;">
+            <img src="{{ event.image_url }}" class="img-fluid w-100" style="max-height: 450px; object-fit: cover;">
+            <div class="card-body p-5">
+                <div class="mb-4">
+                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3">{{ event.category }}</span>
+                </div>
+                <h1 class="fw-bold mb-4">{{ event.title }}</h1>
+                <div class="row mb-5 text-muted">
+                    <div class="col-sm-6"><i class="bi bi-calendar3 me-2"></i> {{ event.date }}</div>
+                    <div class="col-sm-6"><i class="bi bi-geo-alt me-2"></i> {{ event.location }}</div>
+                </div>
+                <h5 class="fw-bold mb-3">イベント詳細</h5>
+                <p class="mb-5" style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細な説明はありません。" }}</p>
+                <div class="d-flex flex-wrap gap-2 mb-5">
+                    {% for tag in event.tags %}<span class="badge rounded-pill bg-light text-secondary px-3 py-2">#{{ tag }}</span>{% endfor %}
+                </div>
+                <div class="d-grid pt-3 border-top">
+                    <a href="/" class="btn btn-outline-secondary btn-lg rounded-pill">掲示板に戻る</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+# --- POST_TEMPLATE（説明欄の textarea を追加） ---
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -111,8 +153,8 @@ POST_TEMPLATE = '''
 </head>
 <body class="bg-light">
     <div class="container py-5" style="max-width: 600px;">
-        <div class="card p-4 shadow-sm">
-            <h2 class="mb-4">新しいイベントを投稿</h2>
+        <div class="card p-4 shadow-sm" style="border-radius: 20px;">
+            <h2 class="mb-4 fw-bold">新しいイベントを投稿</h2>
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">カテゴリ</label>
@@ -125,18 +167,14 @@ POST_TEMPLATE = '''
                 <div class="mb-3"><label class="form-label">日付</label><input type="text" name="date" class="form-control" placeholder="2026.05.25 (土) 19:00〜"></div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
                 
-                <!-- 修正箇所：ファイル選択に変更 -->
-                <div class="mb-3">
-                    <label class="form-label">イベント画像</label>
-                    <input type="file" name="image" class="form-control" accept="image/*">
-                </div>
+                <!-- 追加：詳細な説明欄 -->
+                <div class="mb-3"><label class="form-label">詳細な説明</label><textarea name="description" class="form-control" rows="5" placeholder="イベントの内容について詳しく書いてください"></textarea></div>
 
+                <div class="mb-3"><label class="form-label">イベント画像</label><input type="file" name="image" class="form-control" accept="image/*"></div>
                 <div class="mb-3"><label class="form-label">タグ（カンマ区切り）</label><input type="text" name="tags" class="form-control" placeholder="交流会, パレード"></div>
-                <button type="submit" class="btn btn-primary w-100" style="background:#ff6b81; border:none;">投稿する</button>
+                <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold" style="background:#ff6b81; border:none;">投稿する</button>
             </form>
-            <div class="mt-3 text-center">
-                <a href="/" class="text-decoration-none text-muted">戻る</a>
-            </div>
+            <div class="mt-4 text-center"><a href="/" class="text-decoration-none text-muted">キャンセル</a></div>
         </div>
     </div>
 </body>
@@ -151,29 +189,23 @@ def index():
     events = all_events if active_cat == 'all' else [e for e in all_events if e['category'] == active_cat]
     return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat)
 
-# 修正ポイント：画像保存ロジックを追加
 @app.route('/post', methods=['GET', 'POST'])
 def post():
     if request.method == 'POST':
         events = load_events()
-        
-        # 画像の処理
         image_file = request.files.get('image')
-        image_url = "https://via.placeholder.com/500x300" # デフォルト画像
-        
+        image_url = "https://via.placeholder.com/500x300"
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
-            # フォルダがない場合は作成する
-            if not os.path.exists(app.config['UPLOAD_FOLDER']):
-                os.makedirs(app.config['UPLOAD_FOLDER'])
-            
+            if not os.path.exists(app.config['UPLOAD_FOLDER']): os.makedirs(app.config['UPLOAD_FOLDER'])
             image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            image_url = '/static/uploads/' + filename # ブラウザから見えるパスに変換
+            image_url = '/static/uploads/' + filename
 
         new_event = {
-            "id": len(events) + 1,
+            "id": int(os.urandom(4).hex(), 16), # ランダムな数値ID
             "category": request.form.get('category'),
             "title": request.form.get('title'),
+            "description": request.form.get('description'), # 追加
             "date": request.form.get('date'),
             "location": request.form.get('location'),
             "image_url": image_url,
@@ -183,6 +215,22 @@ def post():
         save_events(events)
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE)
+
+# --- 新機能：詳細ページへのルート ---
+@app.route('/event/<int:event_id>')
+def event_detail(event_id):
+    events = load_events()
+    event = next((e for e in events if e.get('id') == event_id), None)
+    if event is None: return "Event Not Found", 404
+    return render_template_string(DETAIL_TEMPLATE, event=event)
+
+# --- 新機能：削除ルート ---
+@app.route('/delete/<int:event_id>')
+def delete_event(event_id):
+    events = load_events()
+    filtered_events = [e for e in events if e.get('id') != event_id]
+    save_events(filtered_events)
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
