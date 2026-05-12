@@ -1,5 +1,6 @@
 import json
 import os
+import urllib.parse # 追加：SNSシェア用
 from flask import Flask, render_template_string, request, redirect, url_for
 from werkzeug.utils import secure_filename
 
@@ -10,8 +11,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# 管理用パスワード（必要に応じてここを好きな文字列に変えてください）
 ADMIN_PASSWORD = "soyoka_admin" 
 
 def load_events():
@@ -31,45 +30,49 @@ categories = [
     {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
-# --- INDEX_TEMPLATE（削除ボタンをパスワード入力式に変更） ---
+# --- デザイン（微調整：背景をグラデーションに） ---
+COMMON_STYLE = '''
+<style>
+    body { 
+        background: linear-gradient(135deg, #fef1f2 0%, #fff5f7 100%); 
+        font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+        color: #444; 
+    }
+    .nav-pills { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(5px); border-radius: 50px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+    .nav-link { color: #888; border-radius: 30px !important; transition: 0.3s; }
+    .nav-link.active { background-color: #ff6b81 !important; box-shadow: 0 4px 10px rgba(255,107,129,0.3); }
+    .card { border: none; border-radius: 24px; transition: all 0.3s cubic-bezier(.25,.8,.25,1); background: #fff; }
+    .card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(255,107,129,0.1) !important; }
+    .event-image { height: 220px; object-fit: cover; border-radius: 24px 24px 0 0; }
+    .post-button {
+        position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
+        background: #ff6b81; color: #fff; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); z-index: 1000; text-decoration: none;
+        transition: 0.3s;
+    }
+    .post-button:hover { transform: scale(1.1) rotate(90deg); color: #fff; }
+</style>
+'''
+
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LGBTQ+ イベント掲示板</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <style>
-        body { background-color: #fef1f2; font-family: sans-serif; color: #444; }
-        .nav-pills { background: #fff; border-radius: 50px; padding: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .nav-link { color: #888; border-radius: 30px !important; text-align: center; font-size: 0.8rem; }
-        .nav-link.active { background-color: #ff6b81 !important; color: #fff !important; }
-        .filter-icon { width: 24px; height: 24px; display: block; margin: 0 auto 3px; }
-        .nav-link.active .filter-icon { filter: brightness(0) invert(1); }
-        .card { border: none; border-radius: 20px; overflow: hidden; transition: 0.2s; background: #fff; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
-        .event-image { height: 200px; object-fit: cover; }
-        .badge-tag { background-color: #fce7f3; color: #db2777; border: none; }
-        .post-button {
-            position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px;
-            background: #ff6b81; color: #fff; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 30px; box-shadow: 0 5px 15px rgba(255,107,129,0.4); z-index: 1000; text-decoration: none;
-        }
-        .btn-delete { color: #ff6b81; font-size: 0.8rem; border: none; background: none; padding: 0; cursor: pointer; }
-    </style>
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
     <div class="container py-5">
-        <h1 class="text-center fw-bold mb-5">LGBTQ+ イベント掲示板</h1>
+        <h1 class="text-center fw-bold mb-5" style="color: #ff6b81;">🌈 LGBTQ+ Events</h1>
         <ul class="nav nav-pills justify-content-center mb-5">
             {% for cat in categories %}
             <li class="nav-item">
                 <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
-                    <img src="/static/images/icon_{{ cat.icon }}" class="filter-icon">
-                    {{ cat.name }}
+                    <img src="/static/images/icon_{{ cat.icon }}" style="width:20px; margin-bottom:2px;"> {{ cat.name }}
                 </a>
             </li>
             {% endfor %}
@@ -80,22 +83,20 @@ INDEX_TEMPLATE = '''
                 <div class="card h-100 shadow-sm">
                     <a href="/event/{{ event.id }}"><img src="{{ event.image_url }}" class="card-img-top event-image"></a>
                     <div class="card-body p-4">
-                        <span class="badge bg-light text-secondary rounded-pill mb-2">{{ event.category }}</span>
+                        <div class="d-flex justify-content-between">
+                            <span class="badge bg-light text-secondary rounded-pill mb-2">{{ event.category }}</span>
+                            <small class="text-muted"><i class="bi bi-chat-dots"></i> {{ event.comments|length }}</small>
+                        </div>
                         <h5 class="card-title fw-bold"><a href="/event/{{ event.id }}" class="text-decoration-none text-dark">{{ event.title }}</a></h5>
-                        <p class="small text-muted mb-1"><i class="bi bi-calendar3"></i> {{ event.date }}</p>
-                        <p class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
-                        
+                        <p class="small text-muted mb-4"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex flex-wrap gap-1">
-                                {% for tag in event.tags %}<span class="badge badge-tag rounded-pill">{{ tag }}</span>{% endfor %}
+                                {% for tag in event.tags %}<span class="badge bg-light text-pink rounded-pill" style="color:#ff6b81;">#{{ tag }}</span>{% endfor %}
                             </div>
-                            <!-- 削除用フォーム（パスワードをプロンプトで受け取る） -->
                             <form action="/delete/{{ event.id }}" method="POST" style="display: inline;" 
-                                  onsubmit="const pw = prompt('管理用パスワードを入力してください'); if(pw){ this.password.value = pw; return true; } return false;">
+                                  onsubmit="const pw = prompt('管理用パスワードを入力'); if(pw){ this.password.value = pw; return true; } return false;">
                                 <input type="hidden" name="password" value="">
-                                <button type="submit" class="btn-delete">
-                                    <i class="bi bi-trash"></i> 削除
-                                </button>
+                                <button type="submit" class="btn text-muted p-0"><i class="bi bi-trash"></i></button>
                             </form>
                         </div>
                     </div>
@@ -109,7 +110,6 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- DETAIL_TEMPLATE（詳細ページ） ---
 DETAIL_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -118,20 +118,44 @@ DETAIL_TEMPLATE = '''
     <title>{{ event.title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <style>body { background-color: #fef1f2; color: #444; }</style>
+    ''' + COMMON_STYLE + '''
 </head>
 <body>
     <div class="container py-5" style="max-width: 800px;">
-        <div class="card shadow border-0 overflow-hidden" style="border-radius: 25px;">
+        <div class="card shadow border-0 overflow-hidden mb-4" style="border-radius: 30px;">
             <img src="{{ event.image_url }}" class="img-fluid w-100" style="max-height: 450px; object-fit: cover;">
             <div class="card-body p-5">
-                <h1 class="fw-bold mb-4">{{ event.title }}</h1>
-                <p class="text-muted mb-4"><i class="bi bi-calendar3"></i> {{ event.date }} / <i class="bi bi-geo-alt"></i> {{ event.location }}</p>
-                <hr>
-                <p style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細な説明はありません。" }}</p>
-                <div class="mt-5 pt-3 border-top d-grid">
-                    <a href="/" class="btn btn-outline-secondary btn-lg rounded-pill">戻る</a>
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <h1 class="fw-bold">{{ event.title }}</h1>
+                    <!-- Xシェアボタン -->
+                    <a href="https://twitter.com/share?url={{ share_url }}&text={{ share_text }}" 
+                       target="_blank" class="btn btn-dark rounded-pill px-4">
+                        <i class="bi bi-twitter-x"></i> Share
+                    </a>
                 </div>
+                <p class="text-muted"><i class="bi bi-calendar3"></i> {{ event.date }}　<i class="bi bi-geo-alt"></i> {{ event.location }}</p>
+                <hr class="my-4">
+                <p style="white-space: pre-wrap; line-height: 1.8;">{{ event.description or "詳細なし" }}</p>
+                
+                <!-- コメントセクション -->
+                <div class="mt-5 pt-5 border-top">
+                    <h5 class="fw-bold mb-4"><i class="bi bi-chat-left-text"></i> コメント ({{ event.comments|length }})</h5>
+                    {% for comment in event.comments %}
+                    <div class="bg-light p-3 rounded-4 mb-3">
+                        <small class="text-muted d-block mb-1">{{ comment.date }}</small>
+                        {{ comment.text }}
+                    </div>
+                    {% endfor %}
+                    
+                    <form action="/comment/{{ event.id }}" method="POST" class="mt-4">
+                        <div class="input-group">
+                            <input type="text" name="comment" class="form-control rounded-pill-start" placeholder="一言送る..." required>
+                            <button class="btn btn-primary rounded-pill-end" style="background:#ff6b81; border:none;">送信</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="mt-5 d-grid"><a href="/" class="btn btn-outline-secondary rounded-pill">掲示板に戻る</a></div>
             </div>
         </div>
     </div>
@@ -139,33 +163,37 @@ DETAIL_TEMPLATE = '''
 </html>
 '''
 
-# --- POST_TEMPLATE ---
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8"><title>イベント投稿</title>
+    <meta charset="UTF-8"><title>投稿</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    ''' + COMMON_STYLE + '''
 </head>
-<body class="bg-light">
+<body>
     <div class="container py-5" style="max-width: 600px;">
-        <div class="card p-4 shadow-sm" style="border-radius: 20px;">
-            <h2 class="mb-4 fw-bold">新しいイベントを投稿</h2>
+        <div class="card p-5 shadow-sm">
+            <h2 class="mb-4 fw-bold">New Event</h2>
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">カテゴリ</label>
                     <select name="category" class="form-select">
-                        <option value="lesbian">Lesbian</option><option value="gay">Gay</option>
-                        <option value="bisexual">Bisexual</option><option value="transgender">Transgender</option>
-                        <option value="queer">Queer</option>
+                        {% for cat in categories if cat.id != 'all' %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                        {% endfor %}
                     </select>
                 </div>
-                <div class="mb-3"><label class="form-label">日付</label><input type="text" name="date" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">詳細な説明</label><textarea name="description" class="form-control" rows="5"></textarea></div>
-                <div class="mb-3"><label class="form-label">イベント画像</label><input type="file" name="image" class="form-control" accept="image/*"></div>
-                <div class="mb-3"><label class="form-label">タグ（カンマ区切り）</label><input type="text" name="tags" class="form-control"></div>
-                <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold" style="background:#ff6b81; border:none;">投稿する</button>
+                <div class="mb-3"><label class="form-label">日付 / 場所</label>
+                    <div class="row g-2">
+                        <div class="col"><input type="text" name="date" class="form-control" placeholder="日付"></div>
+                        <div class="col"><input type="text" name="location" class="form-control" placeholder="場所"></div>
+                    </div>
+                </div>
+                <div class="mb-3"><label class="form-label">詳細</label><textarea name="description" class="form-control" rows="4"></textarea></div>
+                <div class="mb-3"><label class="form-label">画像</label><input type="file" name="image" class="form-control" accept="image/*"></div>
+                <div class="mb-3"><label class="form-label">タグ (カンマ区切り)</label><input type="text" name="tags" class="form-control"></div>
+                <button type="submit" class="btn btn-primary w-100 py-3 rounded-pill fw-bold" style="background:#ff6b81; border:none;">公開する</button>
             </form>
         </div>
     </div>
@@ -201,32 +229,48 @@ def post():
             "date": request.form.get('date'),
             "location": request.form.get('location'),
             "image_url": image_url,
-            "tags": [t.strip() for t in request.form.get('tags').split(',')] if request.form.get('tags') else []
+            "tags": [t.strip() for t in request.form.get('tags').split(',')] if request.form.get('tags') else [],
+            "comments": [] # コメント用配列を初期化
         }
         events.append(new_event)
         save_events(events)
         return redirect(url_for('index'))
-    return render_template_string(POST_TEMPLATE)
+    return render_template_string(POST_TEMPLATE, categories=categories)
 
 @app.route('/event/<int:event_id>')
 def event_detail(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
-    if event is None: return "Event Not Found", 404
-    return render_template_string(DETAIL_TEMPLATE, event=event)
+    if event is None: return "NotFound", 404
+    
+    # シェア用のテキストとURLを作成
+    share_text = urllib.parse.quote(f"🌈 LGBTQ+ イベント：{event['title']}")
+    share_url = urllib.parse.quote(request.url)
+    
+    return render_template_string(DETAIL_TEMPLATE, event=event, share_text=share_text, share_url=share_url)
 
-# --- 削除ルート（パスワード認証付き） ---
+# --- コメント投稿用ルート ---
+@app.route('/comment/<int:event_id>', methods=['POST'])
+def add_comment(event_id):
+    events = load_events()
+    comment_text = request.form.get('comment')
+    import datetime
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+    
+    for e in events:
+        if e.get('id') == event_id:
+            if 'comments' not in e: e['comments'] = []
+            e['comments'].append({"text": comment_text, "date": now})
+            break
+    save_events(events)
+    return redirect(url_for('event_detail', event_id=event_id))
+
 @app.route('/delete/<int:event_id>', methods=['POST'])
 def delete_event(event_id):
-    input_password = request.form.get('password')
-    
-    if input_password == ADMIN_PASSWORD:
+    if request.form.get('password') == ADMIN_PASSWORD:
         events = load_events()
-        filtered_events = [e for e in events if e.get('id') != event_id]
-        save_events(filtered_events)
-        return redirect(url_for('index'))
-    else:
-        return "パスワードが正しくありません。", 403
+        save_events([e for e in events if e.get('id') != event_id])
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
