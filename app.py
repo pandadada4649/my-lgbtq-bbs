@@ -1,12 +1,15 @@
 import json
 import os
 from flask import Flask, render_template_string, request, redirect, url_for
+from werkzeug.utils import secure_filename # 追加：ファイル名を安全にするため
 
 app = Flask(__name__)
 
-# JSONファイルのパス設定
+# --- 設定の追加 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads') # 保存先フォルダ
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # 1. データを読み込む
 def load_events():
@@ -29,7 +32,7 @@ categories = [
     {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
-# --- デザイン（HTML） ---
+# INDEX_TEMPLATE はそのまま（省略せずに書きます）
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -98,6 +101,7 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
+# 修正ポイント：enctypeを追加し、画像URLをファイル選択に変更
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -109,20 +113,30 @@ POST_TEMPLATE = '''
     <div class="container py-5" style="max-width: 600px;">
         <div class="card p-4 shadow-sm">
             <h2 class="mb-4">新しいイベントを投稿</h2>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">カテゴリ</label>
                     <select name="category" class="form-select">
                         <option value="lesbian">Lesbian</option><option value="gay">Gay</option>
                         <option value="bisexual">Bisexual</option><option value="transgender">Transgender</option>
+                        <option value="queer">Queer</option>
                     </select>
                 </div>
                 <div class="mb-3"><label class="form-label">日付</label><input type="text" name="date" class="form-control" placeholder="2026.05.25 (土) 19:00〜"></div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">画像URL</label><input type="text" name="image_url" class="form-control"></div>
+                
+                <!-- 修正箇所：ファイル選択に変更 -->
+                <div class="mb-3">
+                    <label class="form-label">イベント画像</label>
+                    <input type="file" name="image" class="form-control" accept="image/*">
+                </div>
+
                 <div class="mb-3"><label class="form-label">タグ（カンマ区切り）</label><input type="text" name="tags" class="form-control" placeholder="交流会, パレード"></div>
                 <button type="submit" class="btn btn-primary w-100" style="background:#ff6b81; border:none;">投稿する</button>
             </form>
+            <div class="mt-3 text-center">
+                <a href="/" class="text-decoration-none text-muted">戻る</a>
+            </div>
         </div>
     </div>
 </body>
@@ -137,17 +151,32 @@ def index():
     events = all_events if active_cat == 'all' else [e for e in all_events if e['category'] == active_cat]
     return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat)
 
+# 修正ポイント：画像保存ロジックを追加
 @app.route('/post', methods=['GET', 'POST'])
 def post():
     if request.method == 'POST':
         events = load_events()
+        
+        # 画像の処理
+        image_file = request.files.get('image')
+        image_url = "https://via.placeholder.com/500x300" # デフォルト画像
+        
+        if image_file and image_file.filename != '':
+            filename = secure_filename(image_file.filename)
+            # フォルダがない場合は作成する
+            if not os.path.exists(app.config['UPLOAD_FOLDER']):
+                os.makedirs(app.config['UPLOAD_FOLDER'])
+            
+            image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            image_url = '/static/uploads/' + filename # ブラウザから見えるパスに変換
+
         new_event = {
             "id": len(events) + 1,
             "category": request.form.get('category'),
             "title": request.form.get('title'),
             "date": request.form.get('date'),
             "location": request.form.get('location'),
-            "image_url": request.form.get('image_url') or "https://via.placeholder.com/500x300",
+            "image_url": image_url,
             "tags": [t.strip() for t in request.form.get('tags').split(',')] if request.form.get('tags') else []
         }
         events.append(new_event)
