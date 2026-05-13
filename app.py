@@ -199,10 +199,24 @@ EDIT_TEMPLATE = '''
     <div class="container py-5" style="max-width: 600px;">
         <div class="card p-5 shadow">
             <h2 class="mb-4 fw-bold">投稿を編集</h2>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
+                <div class="mb-3"><label class="form-label">カテゴリ</label>
+                    <select name="category" class="form-select">
+                        {% for cat in categories if cat.id != 'all' %}
+                        <option value="{{ cat.id }}" {% if event.category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
+                <div class="mb-3">
+                    <label class="form-label">現在の画像</label><br>
+                    <img src="{{ event.image_url }}" style="width: 100px; border-radius: 8px; margin-bottom: 10px;">
+                    <input type="file" name="image" class="form-control">
+                    <small class="text-muted">変更する場合のみ選択してください</small>
+                </div>
                 <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">更新する</button>
+                <a href="/" class="btn btn-link w-100 mt-2 text-decoration-none text-muted">キャンセル</a>
             </form>
         </div>
     </div>
@@ -292,10 +306,25 @@ def edit_event(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
     if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
+    
     if request.method == 'POST':
-        event['title'], event['location'] = request.form.get('title'), request.form.get('location')
-        save_events(events); return redirect(url_for('index'))
-    return render_template_string(EDIT_TEMPLATE, event=event)
+        # 🌟 カテゴリと基本情報を更新
+        event['title'] = request.form.get('title')
+        event['location'] = request.form.get('location')
+        event['category'] = request.form.get('category')
+        
+        # 🌟 画像の更新処理
+        image_file = request.files.get('image')
+        if image_file and image_file.filename != '':
+            filename = secure_filename(image_file.filename)
+            if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
+            image_file.save(os.path.join(UPLOAD_FOLDER, filename))
+            event['image_url'] = '/static/uploads/' + filename
+            
+        save_events(events)
+        return redirect(url_for('index'))
+        
+    return render_template_string(EDIT_TEMPLATE, event=event, categories=categories)
 
 @app.route('/delete/<int:event_id>', methods=['POST'])
 @login_required
