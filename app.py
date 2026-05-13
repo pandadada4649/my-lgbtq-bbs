@@ -68,13 +68,18 @@ COMMON_STYLE = '''
     .card { border: none; border-radius: 24px; background: #fff; transition: 0.3s; }
     .card:hover { transform: translateY(-8px); box-shadow: 0 15px 30px rgba(255,107,129,0.1) !important; }
     .event-image { height: 220px; object-fit: cover; border-radius: 24px 24px 0 0; }
-    .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; }
-    .btn-pink { background-color: #ff6b81; color: white; border-radius: 50px; }
+    .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; transition: 0.3s; }
+    .post-button:hover { transform: scale(1.1) rotate(90deg); }
+    .btn-pink { background-color: #ff6b81; color: white !important; border-radius: 50px; border: none; }
+    .btn-pink:hover { background-color: #ff4f68; }
     .btn-outline-pink { border-color: #ff6b81; color: #ff6b81; border-radius: 50px; }
+    .btn-outline-pink:hover { background-color: #ff6b81; color: white; }
+    .nav-link.active { background-color: #ff6b81 !important; }
 </style>
 '''
 
-# --- 画面テンプレート ---
+# --- 各画面のテンプレート ---
+
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -96,14 +101,23 @@ INDEX_TEMPLATE = '''
     </div>
     <div class="container py-5 text-center">
         <h1 class="fw-bold mb-5" style="color: #ff6b81;">🌈 LGBTQ+ Events</h1>
+        <ul class="nav nav-pills justify-content-center mb-5">
+            {% for cat in categories %}
+            <li class="nav-item">
+                <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
+                    {{ cat.name }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 text-start">
             {% for event in events %}
             <div class="col">
                 <div class="card h-100 shadow-sm">
                     <a href="/event/{{ event.id }}"><img src="{{ event.image_url }}" class="card-img-top event-image"></a>
                     <div class="card-body p-4">
-                        <h5 class="card-title fw-bold">{{ event.title }}</h5>
-                        <p class="small text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
+                        <h5 class="card-title fw-bold"><a href="/event/{{ event.id }}" class="text-decoration-none text-dark">{{ event.title }}</a></h5>
+                        <p class="small text-muted mb-0"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
                     </div>
                 </div>
             </div>
@@ -126,8 +140,12 @@ SIGNUP_TEMPLATE = '''
             <form method="POST">
                 <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-pink w-100">登録する</button>
+                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">登録する</button>
             </form>
+            <div class="mt-4 text-center">
+                <p class="small text-muted mb-0">すでにアカウントをお持ちですか？</p>
+                <a href="/login" class="text-decoration-none" style="color: #ff6b81;">ログインはこちら</a>
+            </div>
         </div>
     </div>
 </body>
@@ -145,8 +163,12 @@ LOGIN_TEMPLATE = '''
             <form method="POST">
                 <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
                 <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-pink w-100">ログイン</button>
+                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">ログイン</button>
             </form>
+            <div class="mt-4 text-center">
+                <p class="small text-muted mb-0">初めてご利用ですか？</p>
+                <a href="/signup" class="text-decoration-none" style="color: #ff6b81;">新規登録はこちら</a>
+            </div>
         </div>
     </div>
 </body>
@@ -170,7 +192,8 @@ POST_TEMPLATE = '''
                 </div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
                 <div class="mb-3"><label class="form-label">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100">投稿する</button>
+                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">投稿する</button>
+                <a href="/" class="btn btn-link w-100 mt-2 text-decoration-none text-muted">キャンセル</a>
             </form>
         </div>
     </div>
@@ -188,9 +211,12 @@ DETAIL_TEMPLATE = '''
             <img src="{{ event.image_url }}" class="w-100" style="height:400px; object-fit:cover;">
             <div class="p-5">
                 <h1 class="fw-bold mb-3">{{ event.title }}</h1>
-                <p class="text-muted">{{ event.location }}</p>
-                <hr>
-                <a href="/" class="btn btn-outline-secondary rounded-pill">戻る</a>
+                <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
+                <div class="mt-4">
+                    <p>{{ event.description if event.description else '詳細情報はありません。' }}</p>
+                </div>
+                <hr class="my-5">
+                <a href="/" class="btn btn-outline-secondary rounded-pill">一覧に戻る</a>
             </div>
         </div>
     </div>
@@ -199,10 +225,13 @@ DETAIL_TEMPLATE = '''
 '''
 
 # --- ルート設定 ---
+
 @app.route('/')
 def index():
     all_events = load_events()
-    return render_template_string(INDEX_TEMPLATE, events=all_events, categories=categories, current_user=current_user)
+    active_cat = request.args.get('category', 'all')
+    events = all_events if active_cat == 'all' else [e for e in all_events if e.get('category') == active_cat]
+    return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat, current_user=current_user)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -223,7 +252,7 @@ def login():
         if user_data and check_password_hash(user_data['password'], password):
             login_user(User(user_data['id'], user_data['username']))
             return redirect(url_for('index'))
-        return "ログイン失敗", 401
+        return "ログイン失敗。ユーザー名またはパスワードが正しくありません。", 401
     return render_template_string(LOGIN_TEMPLATE)
 
 @app.route('/logout')
@@ -244,12 +273,20 @@ def post():
     if request.method == 'POST':
         events = load_events()
         image_file = request.files.get('image')
-        image_url = "/static/uploads/" + secure_filename(image_file.filename) if image_file else "https://via.placeholder.com/500"
-        if image_file: 
+        image_url = "/static/uploads/" + secure_filename(image_file.filename) if image_file and image_file.filename != '' else "https://via.placeholder.com/500"
+        if image_file and image_file.filename != '': 
             if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, secure_filename(image_file.filename)))
         
-        events.append({"id": int(os.urandom(4).hex(), 16), "title": request.form.get('title'), "location": request.form.get('location'), "category": request.form.get('category'), "image_url": image_url})
+        new_event = {
+            "id": int(os.urandom(4).hex(), 16),
+            "title": request.form.get('title'),
+            "location": request.form.get('location'),
+            "category": request.form.get('category'),
+            "image_url": image_url,
+            "comments": []
+        }
+        events.append(new_event)
         save_events(events)
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE, categories=categories)
