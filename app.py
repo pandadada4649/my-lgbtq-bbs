@@ -255,10 +255,27 @@ def signup():
     if request.method == 'POST':
         username, password = request.form.get('username'), request.form.get('password')
         users = load_users_data()
-        if any(u['username'] == username for u in users): return "名前重複", 400
-        users.append({"id": len(users)+1, "username": username, "password": generate_password_hash(password)})
+        
+        if any(u['username'] == username for u in users): 
+            return "この名前は既に使われています", 400
+            
+        # 1. 新しいユーザーを作成
+        new_user_id = len(users) + 1
+        new_user_data = {
+            "id": new_user_id, 
+            "username": username, 
+            "password": generate_password_hash(password)
+        }
+        users.append(new_user_data)
         save_users_data(users)
-        return redirect(url_for('login'))
+
+        # 🌟 2. ここがポイント！登録したばかりのユーザーで即ログイン
+        user_obj = User(new_user_id, username)
+        login_user(user_obj) # これだけでログイン状態になります
+        
+        # 3. ログイン画面ではなく、トップページへ直接飛ばす
+        return redirect(url_for('index'))
+        
     return render_template_string(SIGNUP_TEMPLATE)
 
 @app.route('/login', methods=['GET', 'POST'])
