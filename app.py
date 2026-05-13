@@ -125,7 +125,10 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- ルート設定 ---
+# --- (上部は省略：importからcategoriesの定義まではそのままでOK) ---
+
+# --- ルート設定（ここが命！） ---
+
 @app.route('/')
 def index():
     all_events = load_events()
@@ -159,12 +162,71 @@ def login():
         return "ログイン失敗", 401
     return render_template_string(LOGIN_TEMPLATE)
 
-@app.route('/post', methods=['GET', 'POST'])
+@app.route('/logout')
 @login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+@app.route('/event/<int:event_id>')
+def event_detail(event_id):
+    events = load_events()
+    event = next((e for e in events if e.get('id') == event_id), None)
+    if event is None: return "NotFound", 404
+    share_text = urllib.parse.quote(f"🌈 LGBTQ+ イベント：{event['title']}")
+    share_url = urllib.parse.quote(request.url)
+    return render_template_string(DETAIL_TEMPLATE, event=event, share_text=share_text, share_url=share_url)
+
+@app.route('/comment/<int:event_id>', methods=['POST'])
+def add_comment(event_id):
+    events = load_events()
+    comment_text = request.form.get('comment')
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+    for e in events:
+        if e.get('id') == event_id:
+            if 'comments' not in e: e['comments'] = []
+            e['comments'].append({"text": comment_text, "date": now})
+            break
+    save_events(events)
+    return redirect(url_for('event_detail', event_id=event_id))
+
+@app.route('/post', methods=['GET', 'POST'])
+@login_required # ログインしていないと投稿できない
 def post():
     if request.method == 'POST':
-        # ...（以前作った投稿保存ロジック）...
-        return redirect(url_for('index'))
-    return render_template_string(POST_TEMPLATE, categories=categories) # POST_TEMPLATEを表示
+        events = load_events()
+        image_file = request.files.get('image')
+        image_url = "https://via.placeholder.com/500x300"
+        if image_file and image_file.filename != '':
+            filename = secure_filename(image_file.filename)
+            if not os.path.exists(app.config['UPLOAD_FOLDER']): os.makedirs(app.config['UPLOAD_FOLDER'])
+            image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            image_url = '/static/uploads/' + filename
 
-# （以下、以前の詳細画面やコメント、ログアウトのルートを続けます）
+        new_event = {
+            "id": int(os.urandom(4).hex(), 16),
+            "category": request.form.get('category'),
+            "title": request.form.get('title'),
+            "description": request.form.get('description'),
+            "date": request.form.get('date'),
+            "location": request.form.get('location'),
+            "image_url": image_url,
+            "tags": [t.strip() for t in request.form.get('tags').split(',')] if request.form.get('tags') else [],
+            "comments": []
+        }
+        events.append(new_event)
+        save_events(events)
+        return redirect(url_for('index'))
+    return render_template_string(POST_TEMPLATE, categories=categories)
+
+@app.route('/delete/<int:event_id>', methods=['POST'])
+def delete_event(event_id):
+    # ここは管理者パスワードのままでも、ログインユーザー判定に変えてもOKです
+    if request.form.get('password') == "soyoka_admin":
+        events = load_events()
+        save_events([e for e in events if e.get('id') != event_id])
+    return redirect(url_for('index'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
