@@ -1,8 +1,6 @@
 import json
 import os
-import urllib.parse
-import datetime
-from flask import Flask, render_template_string, request, redirect, url_for, flash
+from flask import Flask, render_template_string, request, redirect, url_for
 from werkzeug.utils import secure_filename
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -103,8 +101,6 @@ INDEX_TEMPLATE = '''
                     <div class="card-body p-4">
                         <h5 class="card-title fw-bold"><a href="/event/{{ event.id }}" class="text-decoration-none text-dark">{{ event.title }}</a></h5>
                         <p class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
-                        
-                        {# 本人の投稿なら編集・削除ボタンを出す #}
                         {% if current_user.is_authenticated and event.user_id == current_user.id|int %}
                         <div class="d-flex gap-2 border-top pt-3 mt-2">
                             <a href="/edit/{{ event.id }}" class="btn btn-sm btn-outline-secondary rounded-pill">編集</a>
@@ -124,9 +120,51 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- 新規登録・ログインは同じなので省略（そよかぜさんの完全版を流用してください） ---
-SIGNUP_TEMPLATE = '''...'''
-LOGIN_TEMPLATE = '''...'''
+SIGNUP_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>新規登録</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<body>
+    <div class="container py-5" style="max-width: 400px;">
+        <div class="card p-4 shadow-sm">
+            <h2 class="mb-4 fw-bold">Signup</h2>
+            <form method="POST">
+                <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
+                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">登録する</button>
+            </form>
+            <div class="mt-4 text-center">
+                <p class="small text-muted mb-0">すでにアカウントをお持ちですか？</p>
+                <a href="/login" class="text-decoration-none" style="color: #ff6b81;">ログインはこちら</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>ログイン</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<body>
+    <div class="container py-5" style="max-width: 400px;">
+        <div class="card p-4 shadow-sm">
+            <h2 class="mb-4 fw-bold">Login</h2>
+            <form method="POST">
+                <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
+                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">ログイン</button>
+            </form>
+            <div class="mt-4 text-center">
+                <p class="small text-muted mb-0">初めてご利用ですか？</p>
+                <a href="/signup" class="text-decoration-none" style="color: #ff6b81;">新規登録はこちら</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+'''
 
 POST_TEMPLATE = '''
 <!DOCTYPE html>
@@ -144,7 +182,6 @@ POST_TEMPLATE = '''
                     </select>
                 </div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">内容説明</label><textarea name="description" class="form-control" rows="4"></textarea></div>
                 <div class="mb-3"><label class="form-label">画像</label><input type="file" name="image" class="form-control"></div>
                 <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">投稿する</button>
             </form>
@@ -165,10 +202,28 @@ EDIT_TEMPLATE = '''
             <form method="POST">
                 <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
-                <div class="mb-3"><label class="form-label">内容説明</label><textarea name="description" class="form-control" rows="4">{{ event.description }}</textarea></div>
                 <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">更新する</button>
-                <a href="/" class="btn btn-link w-100 mt-2 text-decoration-none text-muted">キャンセル</a>
             </form>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+DETAIL_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>{{ event.title }}</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<body>
+    <div class="container py-5" style="max-width: 800px;">
+        <div class="card overflow-hidden shadow">
+            <img src="{{ event.image_url }}" class="w-100" style="height:400px; object-fit:cover;">
+            <div class="p-5">
+                <h1 class="fw-bold mb-3">{{ event.title }}</h1>
+                <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
+                <hr class="my-5">
+                <a href="/" class="btn btn-outline-secondary rounded-pill">戻る</a>
+            </div>
         </div>
     </div>
 </body>
@@ -180,6 +235,39 @@ EDIT_TEMPLATE = '''
 @app.route('/')
 def index():
     return render_template_string(INDEX_TEMPLATE, events=load_events(), categories=categories, current_user=current_user)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username, password = request.form.get('username'), request.form.get('password')
+        users = load_users_data()
+        if any(u['username'] == username for u in users): return "名前重複", 400
+        users.append({"id": len(users)+1, "username": username, "password": generate_password_hash(password)})
+        save_users_data(users)
+        return redirect(url_for('login'))
+    return render_template_string(SIGNUP_TEMPLATE)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username, password = request.form.get('username'), request.form.get('password')
+        user_data = next((u for u in load_users_data() if u['username'] == username), None)
+        if user_data and check_password_hash(user_data['password'], password):
+            login_user(User(user_data['id'], user_data['username']))
+            return redirect(url_for('index'))
+        return "失敗", 401
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user(); return redirect(url_for('index'))
+
+@app.route('/event/<int:event_id>')
+def event_detail(event_id):
+    event = next((e for e in load_events() if e.get('id') == event_id), None)
+    if not event: return "NotFound", 404
+    return render_template_string(DETAIL_TEMPLATE, event=event)
 
 @app.route('/post', methods=['GET', 'POST'])
 @login_required
@@ -193,17 +281,7 @@ def post():
             if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             image_url = '/static/uploads/' + filename
-        
-        new_event = {
-            "id": int(os.urandom(4).hex(), 16),
-            "user_id": int(current_user.id), # 🌟 ここで投稿主のIDを保存！
-            "title": request.form.get('title'),
-            "category": request.form.get('category'),
-            "location": request.form.get('location'),
-            "description": request.form.get('description'),
-            "image_url": image_url
-        }
-        events.append(new_event)
+        events.append({"id": int(os.urandom(4).hex(), 16), "user_id": int(current_user.id), "title": request.form.get('title'), "category": request.form.get('category'), "location": request.form.get('location'), "image_url": image_url})
         save_events(events)
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE, categories=categories)
@@ -213,18 +291,10 @@ def post():
 def edit_event(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
-    
-    # 🌟 持ち主チェック：本人じゃない場合は追い返す！
-    if not event or event.get('user_id') != int(current_user.id):
-        return "編集権限がありません", 403
-    
+    if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
     if request.method == 'POST':
-        event['title'] = request.form.get('title')
-        event['location'] = request.form.get('location')
-        event['description'] = request.form.get('description')
-        save_events(events)
-        return redirect(url_for('index'))
-        
+        event['title'], event['location'] = request.form.get('title'), request.form.get('location')
+        save_events(events); return redirect(url_for('index'))
     return render_template_string(EDIT_TEMPLATE, event=event)
 
 @app.route('/delete/<int:event_id>', methods=['POST'])
@@ -232,69 +302,10 @@ def edit_event(event_id):
 def delete_event(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
-    
-    # 🌟 持ち主チェック：本人じゃない場合は追い返す！
-    if not event or event.get('user_id') != int(current_user.id):
-        return "削除権限がありません", 403
-        
-    new_events = [e for e in events if e.get('id') != event_id]
-    save_events(new_events)
+    if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
+    save_events([e for e in events if e.get('id') != event_id])
     return redirect(url_for('index'))
 
-# --- (以下、login/signup/logout等はそのまま継続) ---
-# --- ユーザー登録画面 (Signup) ---
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        users = load_users_data()
-        
-        # 同じ名前のユーザーがいないかチェック
-        if any(u['username'] == username for u in users):
-            return "この名前は既に使われています", 400
-        
-        # パスワードを安全にハッシュ化して保存
-        hashed_pw = generate_password_hash(password)
-        new_user = {
-            "id": len(users) + 1,
-            "username": username,
-            "password": hashed_pw
-        }
-        users.append(new_user)
-        save_users_data(users)
-        return redirect(url_for('login'))
-    
-    return render_template_string(SIGNUP_TEMPLATE)
-
-# --- ログイン画面 (Login) ---
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        users = load_users_data()
-        user_data = next((u for u in users if u['username'] == username), None)
-        
-        # パスワードが合っているかチェック
-        if user_data and check_password_hash(user_data['password'], password):
-            user_obj = User(user_data['id'], user_data['username'])
-            login_user(user_obj)
-            return redirect(url_for('index'))
-        else:
-            return "ユーザー名またはパスワードが違います", 401
-            
-    return render_template_string(LOGIN_TEMPLATE)
-
-# --- ログアウト ---
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
-
-# --- 実行 ---
 if __name__ == '__main__':
-    # Render環境に合わせてポート番号を取得
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
