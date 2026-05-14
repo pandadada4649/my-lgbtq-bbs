@@ -49,14 +49,14 @@ def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 カテゴリ定義（ここが消えていました！） ---
+# --- 🌟 カテゴリとアイコン定義（復活！） ---
 categories = [
-    {'id': 'all', 'name': 'All / Mix'},
-    {'id': 'lesbian', 'name': 'Lesbian'},
-    {'id': 'gay', 'name': 'Gay'},
-    {'id': 'bisexual', 'name': 'Bisexual'},
-    {'id': 'transgender', 'name': 'Transgender'},
-    {'id': 'queer', 'name': 'Queer'},
+    {'id': 'all', 'name': 'All / Mix', 'icon': 'all.png'},
+    {'id': 'lesbian', 'name': 'Lesbian', 'icon': 'les.png'},
+    {'id': 'gay', 'name': 'Gay', 'icon': 'gay.png'},
+    {'id': 'bisexual', 'name': 'Bisexual', 'icon': 'bi.png'},
+    {'id': 'transgender', 'name': 'Transgender', 'icon': 'trans.png'},
+    {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
 ]
 
 COMMON_STYLE = '''
@@ -68,7 +68,8 @@ COMMON_STYLE = '''
     .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; }
     .btn-pink { background-color: #ff6b81; color: white !important; border-radius: 50px; border: none; }
     .btn-outline-pink { border-color: #ff6b81; color: #ff6b81; border-radius: 50px; }
-    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; }
+    .cat-icon { width: 20px; height: 20px; margin-right: 5px; vertical-align: middle; }
+    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; background: white; border: 1px solid #ff6b81; }
     .nav-pills .nav-link.active { background-color: #ff6b81 !important; color: white !important; }
 </style>
 '''
@@ -97,12 +98,11 @@ INDEX_TEMPLATE = '''
     <div class="container py-5 text-center">
         <h1 class="fw-bold mb-5" style="color: #ff6b81;">🌈 LGBTQ+ Events</h1>
         
-        {# 🌟 カテゴリボタン復活！ #}
         <ul class="nav nav-pills justify-content-center mb-5">
             {% for cat in categories %}
             <li class="nav-item">
                 <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
-                    {{ cat.name }}
+                    <img src="/static/images/{{ cat.icon }}" class="cat-icon"> {{ cat.name }}
                 </a>
             </li>
             {% endfor %}
@@ -135,7 +135,8 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- (以下、SIGNUP, LOGIN, POST, EDIT, DETAIL 等のテンプレートは前回同様) ---
+# --- ログイン・登録・投稿・編集画面 ---
+
 SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -226,8 +227,7 @@ EDIT_TEMPLATE = '''
                 </div>
                 <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
                 <div class="mb-3">
-                    <label class="form-label">現在の画像</label><br>
-                    <img src="{{ event.image_url }}" style="width: 100px; border-radius: 8px; margin-bottom: 10px;">
+                    <label class="form-label">画像を変更</label><br>
                     <input type="file" name="image" class="form-control">
                 </div>
                 <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">更新する</button>
@@ -258,13 +258,12 @@ DETAIL_TEMPLATE = '''
 </html>
 '''
 
-# --- ルート設定 ---
+# --- ルート設定（ここから下は前回と同じです） ---
 
 @app.route('/')
 def index():
     all_events = load_events()
     active_cat = request.args.get('category', 'all')
-    # 🌟 カテゴリで絞り込み
     events = all_events if active_cat == 'all' else [e for e in all_events if e.get('category') == active_cat]
     return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat, current_user=current_user)
 
@@ -274,12 +273,9 @@ def signup():
         username, password = request.form.get('username'), request.form.get('password')
         users = load_users_data()
         if any(u['username'] == username for u in users): return "名前重複", 400
-        
         new_user_id = len(users)+1
         users.append({"id": new_user_id, "username": username, "password": generate_password_hash(password)})
         save_users_data(users)
-
-        # 🌟 登録即ログイン機能！
         user_obj = User(new_user_id, username)
         login_user(user_obj)
         return redirect(url_for('index'))
@@ -334,13 +330,11 @@ def edit_event(event_id):
         event['title'] = request.form.get('title')
         event['location'] = request.form.get('location')
         event['category'] = request.form.get('category')
-        
         image_file = request.files.get('image')
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             event['image_url'] = '/static/uploads/' + filename
-
         save_events(events); return redirect(url_for('index'))
     return render_template_string(EDIT_TEMPLATE, event=event, categories=categories)
 
