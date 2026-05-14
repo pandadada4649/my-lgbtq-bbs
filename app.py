@@ -49,6 +49,7 @@ def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
+# --- 🌟 カテゴリ定義（ここが消えていました！） ---
 categories = [
     {'id': 'all', 'name': 'All / Mix'},
     {'id': 'lesbian', 'name': 'Lesbian'},
@@ -67,6 +68,8 @@ COMMON_STYLE = '''
     .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; }
     .btn-pink { background-color: #ff6b81; color: white !important; border-radius: 50px; border: none; }
     .btn-outline-pink { border-color: #ff6b81; color: #ff6b81; border-radius: 50px; }
+    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; }
+    .nav-pills .nav-link.active { background-color: #ff6b81 !important; color: white !important; }
 </style>
 '''
 
@@ -93,6 +96,18 @@ INDEX_TEMPLATE = '''
     </div>
     <div class="container py-5 text-center">
         <h1 class="fw-bold mb-5" style="color: #ff6b81;">🌈 LGBTQ+ Events</h1>
+        
+        {# 🌟 カテゴリボタン復活！ #}
+        <ul class="nav nav-pills justify-content-center mb-5">
+            {% for cat in categories %}
+            <li class="nav-item">
+                <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
+                    {{ cat.name }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 text-start">
             {% for event in events %}
             <div class="col">
@@ -120,6 +135,7 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
+# --- (以下、SIGNUP, LOGIN, POST, EDIT, DETAIL 等のテンプレートは前回同様) ---
 SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -213,10 +229,8 @@ EDIT_TEMPLATE = '''
                     <label class="form-label">現在の画像</label><br>
                     <img src="{{ event.image_url }}" style="width: 100px; border-radius: 8px; margin-bottom: 10px;">
                     <input type="file" name="image" class="form-control">
-                    <small class="text-muted">変更する場合のみ選択してください</small>
                 </div>
                 <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">更新する</button>
-                <a href="/" class="btn btn-link w-100 mt-2 text-decoration-none text-muted">キャンセル</a>
             </form>
         </div>
     </div>
@@ -248,34 +262,27 @@ DETAIL_TEMPLATE = '''
 
 @app.route('/')
 def index():
-    return render_template_string(INDEX_TEMPLATE, events=load_events(), categories=categories, current_user=current_user)
+    all_events = load_events()
+    active_cat = request.args.get('category', 'all')
+    # 🌟 カテゴリで絞り込み
+    events = all_events if active_cat == 'all' else [e for e in all_events if e.get('category') == active_cat]
+    return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=active_cat, current_user=current_user)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
         username, password = request.form.get('username'), request.form.get('password')
         users = load_users_data()
+        if any(u['username'] == username for u in users): return "名前重複", 400
         
-        if any(u['username'] == username for u in users): 
-            return "この名前は既に使われています", 400
-            
-        # 1. 新しいユーザーを作成
-        new_user_id = len(users) + 1
-        new_user_data = {
-            "id": new_user_id, 
-            "username": username, 
-            "password": generate_password_hash(password)
-        }
-        users.append(new_user_data)
+        new_user_id = len(users)+1
+        users.append({"id": new_user_id, "username": username, "password": generate_password_hash(password)})
         save_users_data(users)
 
-        # 🌟 2. ここがポイント！登録したばかりのユーザーで即ログイン
+        # 🌟 登録即ログイン機能！
         user_obj = User(new_user_id, username)
-        login_user(user_obj) # これだけでログイン状態になります
-        
-        # 3. ログイン画面ではなく、トップページへ直接飛ばす
+        login_user(user_obj)
         return redirect(url_for('index'))
-        
     return render_template_string(SIGNUP_TEMPLATE)
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -323,24 +330,18 @@ def edit_event(event_id):
     events = load_events()
     event = next((e for e in events if e.get('id') == event_id), None)
     if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
-    
     if request.method == 'POST':
-        # 🌟 カテゴリと基本情報を更新
         event['title'] = request.form.get('title')
         event['location'] = request.form.get('location')
         event['category'] = request.form.get('category')
         
-        # 🌟 画像の更新処理
         image_file = request.files.get('image')
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
-            if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             event['image_url'] = '/static/uploads/' + filename
-            
-        save_events(events)
-        return redirect(url_for('index'))
-        
+
+        save_events(events); return redirect(url_for('index'))
     return render_template_string(EDIT_TEMPLATE, event=event, categories=categories)
 
 @app.route('/delete/<int:event_id>', methods=['POST'])
