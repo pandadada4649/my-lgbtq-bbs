@@ -1,6 +1,4 @@
-import json
-import os
-import datetime
+import json, os, datetime
 from flask import Flask, render_template_string, request, redirect, url_for
 from werkzeug.utils import secure_filename
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -9,10 +7,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- パス設定 ---
+# --- パス設定：スクショに合わせて修正！ ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
+# 投稿用画像は uploads へ
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -23,33 +22,29 @@ login_manager.login_view = 'login'
 
 class User(UserMixin):
     def __init__(self, id, username):
-        self.id = id
-        self.username = username
+        self.id, self.username = id, username
 
 @login_manager.user_loader
 def load_user(user_id):
     users = load_users_data()
     user_data = next((u for u in users if str(u['id']) == str(user_id)), None)
-    if user_data: return User(user_data['id'], user_data['username'])
-    return None
+    return User(user_data['id'], user_data['username']) if user_data else None
 
 def load_events():
     if not os.path.exists(JSON_PATH): return []
     with open(JSON_PATH, 'r', encoding='utf-8') as f: return json.load(f)
 
 def save_events(events):
-    with open(JSON_PATH, 'w', encoding='utf-8') as f:
-        json.dump(events, f, ensure_ascii=False, indent=2)
+    with open(JSON_PATH, 'w', encoding='utf-8') as f: json.dump(events, f, ensure_ascii=False, indent=2)
 
 def load_users_data():
     if not os.path.exists(USER_PATH): return []
     with open(USER_PATH, 'r', encoding='utf-8') as f: return json.load(f)
 
 def save_users_data(users):
-    with open(USER_PATH, 'w', encoding='utf-8') as f:
-        json.dump(users, f, ensure_ascii=False, indent=2)
+    with open(USER_PATH, 'w', encoding='utf-8') as f: json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- カテゴリ定義 ---
+# --- 🌟 カテゴリ定義：スクショのファイル名に完全一致！ ---
 categories = [
     {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
     {'id': 'gay', 'name': 'Gay', 'jp': 'ゲイ', 'icon': 'icon_gay.png', 'color': '#fff4ec'},
@@ -63,21 +58,16 @@ categories = [
 COMMON_STYLE = '''
 <style>
     :root { --pink: #ff6b81; }
-    body { background-color: #fafbfc; font-family: sans-serif; color: #333; }
+    body { background-color: #fafbfc; font-family: sans-serif; }
     .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
-    .nav-link { color: #555; font-weight: 500; text-decoration: none; margin-left: 20px; }
-    /* 🌟 カテゴリボタン：画像とテキストを縦に並べる */
     .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
     .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
     .cat-card.active { border-color: var(--pink); background-color: #fff !important; }
     .cat-icon-img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; }
-    .search-input { border-radius: 10px; border: 1px solid #ddd; padding: 10px 15px; width: 100%; height: 45px; }
-    .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
+    .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; }
     .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-    .card-img-wrapper { position: relative; width: 100%; height: 200px; }
-    .card-img-top { width: 100%; height: 100%; object-fit: cover; }
     .pickup-badge { position: absolute; top: 15px; left: 15px; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-    .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; padding: 10px 20px; font-weight: bold; }
+    .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; font-weight: bold; }
 </style>
 '''
 
@@ -92,43 +82,42 @@ INDEX_TEMPLATE = '''
     ''' + COMMON_STYLE + '''
 </head>
 <body>
-    <nav class="nav-bar shadow-sm">
+    <nav class="nav-bar shadow-sm mb-4">
         <div class="container d-flex justify-content-between align-items-center">
             <a class="fw-bold fs-4 text-decoration-none" href="/"><span style="color:var(--pink)">LGBTQ+</span> Event Board 🌈</a>
             <div class="d-flex align-items-center">
-                <a href="/" class="nav-link" style="color:var(--pink)">イベントを探す</a>
-                <a href="/post" class="nav-link">イベントを投稿</a>
+                <a href="/" class="nav-link text-decoration-none me-3" style="color:var(--pink)">イベントを探す</a>
+                <a href="/post" class="nav-link text-decoration-none me-3 text-dark">イベントを投稿</a>
                 {% if current_user.is_authenticated %}
-                    <a href="/logout" class="nav-link text-muted small">ログアウト ({{ current_user.username }})</a>
+                    <a href="/logout" class="btn btn-outline-secondary btn-sm rounded-pill">Logout ({{ current_user.username }})</a>
                 {% else %}
-                    <a href="/login" class="nav-link">ログイン</a>
-                    <a href="/signup" class="nav-link">新規登録</a>
+                    <a href="/login" class="btn btn-outline-pink btn-sm">Login</a>
                 {% endif %}
             </div>
         </div>
     </nav>
 
-    <div class="container py-5">
+    <div class="container pb-5">
         <h2 class="fw-bold mb-4">イベントを探す</h2>
 
-        <!-- カテゴリボタン：画像を中に表示 -->
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5 flex-nowrap overflow-auto pb-2" style="scrollbar-width: none;">
+        <!-- 🌟 カテゴリボタン：パスを /static/images/ に修正！ -->
+        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5">
             {% for cat in categories %}
-            <div class="col" style="min-width: 130px;">
+            <div class="col">
                 <a href="/?category={{ cat.id }}" class="cat-card {% if active_cat == cat.id %}active{% endif %}" style="background-color: {{ cat.color }};">
-                    {# 🌟 画像をボックス内に配置 #}
-                    <img src="{{ url_for('static', filename='images/uploads/' + cat.icon) }}" class="cat-icon-img" onerror="this.src='https://via.placeholder.com/45?text=Icon'">
-                    <div class="fw-bold" style="font-size: 13px; line-height: 1.2;">{{ cat.name }}</div>
+                    <img src="{{ url_for('static', filename='images/' + cat.icon) }}" class="cat-icon-img" onerror="this.src='https://via.placeholder.com/45?text=Icon'">
+                    <div class="fw-bold" style="font-size: 13px;">{{ cat.name }}</div>
                     <div class="text-muted" style="font-size: 10px;">({{ cat.jp }})</div>
                 </a>
             </div>
             {% endfor %}
         </div>
 
+        <!-- 検索フォーム -->
         <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
             <input type="hidden" name="category" value="{{ active_cat }}">
             <div class="col-6 col-md-2">
-                <select name="area" class="form-select border-0 shadow-sm py-2" onchange="this.form.submit()">
+                <select name="area" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
                     <option value="">エリア</option>
                     <option value="東京" {% if request.args.get('area') == '東京' %}selected{% endif %}>東京</option>
                     <option value="大阪" {% if request.args.get('area') == '大阪' %}selected{% endif %}>大阪</option>
@@ -137,12 +126,12 @@ INDEX_TEMPLATE = '''
             </div>
             <div class="col-12 col-md-6">
                 <div class="position-relative">
-                    <input type="text" name="q" class="search-input border-0 shadow-sm" placeholder="キーワードで検索" value="{{ request.args.get('q', '') }}">
+                    <input type="text" name="q" class="form-control border-0 shadow-sm" style="border-radius:10px; height:45px;" placeholder="キーワードで検索" value="{{ request.args.get('q', '') }}">
                     <i class="bi bi-search position-absolute" style="right:15px; top:12px; color:#999"></i>
                 </div>
             </div>
             <div class="col-6 col-md-2 ms-auto">
-                <select name="sort" class="form-select border-0 shadow-sm py-2" onchange="this.form.submit()">
+                <select name="sort" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
                     <option value="new" {% if request.args.get('sort') == 'new' %}selected{% endif %}>新着順</option>
                     <option value="old" {% if request.args.get('sort') == 'old' %}selected{% endif %}>古い順</option>
                 </select>
@@ -152,11 +141,9 @@ INDEX_TEMPLATE = '''
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
             {% for event in events %}
             <div class="col">
-                <div class="event-card shadow-sm border">
-                    <div class="card-img-wrapper">
-                        <img src="{{ event.image_url }}" class="card-img-top">
-                        <div class="pickup-badge">PICK UP</div>
-                    </div>
+                <div class="event-card shadow-sm border position-relative">
+                    <img src="{{ event.image_url }}" class="w-100" style="height:200px; object-fit:cover;">
+                    <div class="pickup-badge">PICK UP</div>
                     <div class="p-3">
                         <h6 class="fw-bold mb-2 text-truncate">{{ event.title }}</h6>
                         <div class="small text-muted mb-1"><i class="bi bi-calendar"></i> {{ event.date or '2024.06.01' }}</div>
@@ -164,7 +151,7 @@ INDEX_TEMPLATE = '''
                         <div class="d-flex justify-content-between align-items-center mt-auto">
                             <span class="badge rounded-pill bg-light text-primary border px-3 small">{{ event.category }}</span>
                             {% if current_user.is_authenticated and event.user_id == current_user.id|int %}
-                                <a href="/edit/{{ event.id }}" class="text-muted"><i class="bi bi-pencil-square"></i></a>
+                                <a href="/edit/{{ event.id }}" class="text-muted text-decoration-none"><i class="bi bi-pencil-square"></i></a>
                             {% endif %}
                         </div>
                     </div>
@@ -181,7 +168,7 @@ INDEX_TEMPLATE = '''
 SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
     <div class="container py-5" style="max-width:400px;">
         <div class="card p-4 shadow border-0" style="border-radius:20px;">
@@ -201,7 +188,7 @@ SIGNUP_TEMPLATE = '''
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
     <div class="container py-5" style="max-width:400px;">
         <div class="card p-4 shadow border-0" style="border-radius:20px;">
@@ -221,7 +208,7 @@ LOGIN_TEMPLATE = '''
 POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
     <div class="container py-5" style="max-width:600px;">
         <div class="card p-5 shadow border-0" style="border-radius:20px;">
@@ -247,7 +234,7 @@ POST_TEMPLATE = '''
 EDIT_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
     <div class="container py-5" style="max-width:600px;">
         <div class="card p-5 shadow border-0" style="border-radius:20px;">
@@ -274,7 +261,6 @@ EDIT_TEMPLATE = '''
 </html>
 '''
 
-# --- ルート設定 ---
 @app.route('/')
 def index():
     all_events = load_events()
@@ -344,6 +330,7 @@ def edit_event(event_id):
         image_file = request.files.get('image')
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
+            if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             event['image_url'] = '/static/images/uploads/' + filename
         save_events(events); return redirect(url_for('index'))
