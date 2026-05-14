@@ -76,35 +76,44 @@ STYLE = '''
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f7f8fc;color:#333;min-height:100vh}
 a{text-decoration:none;color:inherit}
-header{background:#fff;border-bottom:1px solid #eee;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.logo{font-size:1.2rem;font-weight:700;background:linear-gradient(90deg,#e40303,#ff8c00,#ffed00,#008026,#004dff,#750787);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-nav{display:flex;gap:20px;align-items:center}
-nav a{color:#555;font-size:.9rem;padding:4px 0;border-bottom:2px solid transparent;transition:.2s}
-nav a.active,nav a:hover{color:#7c3aed;border-bottom-color:#7c3aed}
+header{background:#fff;border-bottom:1px solid #eee;padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.logo{font-size:1.1rem;font-weight:700;background:linear-gradient(90deg,#e40303,#ff8c00,#ffed00,#008026,#004dff,#750787);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+nav{display:flex;gap:16px;align-items:center}
+nav a.nav-link{color:#555;font-size:.9rem;padding:4px 0;border-bottom:2px solid transparent;transition:.2s}
+nav a.nav-link.active,nav a.nav-link:hover{color:#7c3aed;border-bottom-color:#7c3aed}
+/* ハンバーガー */
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;background:none;border:none;padding:4px}
+.hamburger span{display:block;width:24px;height:2px;background:#555;border-radius:2px;transition:.3s}
+.mobile-menu{display:none;position:fixed;top:60px;left:0;right:0;background:#fff;border-bottom:1px solid #eee;padding:16px 20px;flex-direction:column;gap:12px;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.mobile-menu.open{display:flex}
+.mobile-menu a{color:#555;font-size:1rem;padding:8px 0;border-bottom:1px solid #f0f0f0}
+.mobile-menu a:last-child{border-bottom:none}
 .btn{padding:8px 18px;border-radius:20px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-block}
 .btn-primary{background:#7c3aed;color:#fff}.btn-primary:hover{background:#6d28d9}
 .btn-outline{background:#fff;color:#7c3aed;border:2px solid #7c3aed}.btn-outline:hover{background:#f5f3ff}
 .btn-sm{padding:5px 14px;font-size:.8rem}
 .btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
 .btn-warn{background:#f59e0b;color:#fff}.btn-warn:hover{background:#d97706}
-main{max-width:1200px;margin:0 auto;padding:32px 24px}
-h2{font-size:1.4rem;font-weight:700;margin-bottom:20px}
-/* cats */
-.cats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.cat{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px;border-radius:12px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:80px;transition:.2s;text-decoration:none;color:inherit}
+main{max-width:1200px;margin:0 auto;padding:24px 16px}
+h2{font-size:1.3rem;font-weight:700;margin-bottom:16px}
+/* cats — 横スクロール */
+.cats{display:flex;gap:10px;margin-bottom:16px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 14px;border-radius:12px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:72px;flex-shrink:0;transition:.2s;text-decoration:none;color:inherit}
 .cat:hover,.cat.active{border-color:var(--c);background:var(--bg)}
-.cat-icon{font-size:1.4rem}
-.cat-en{font-size:.75rem;font-weight:700;color:var(--c)}
-.cat-ja{font-size:.7rem;color:#888}
+.cat-icon{font-size:1.3rem}
+.cat-en{font-size:.72rem;font-weight:700;color:var(--c)}
+.cat-ja{font-size:.65rem;color:#888}
 /* filters */
-.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.filter-select{padding:8px 14px;border:1px solid #ddd;border-radius:20px;background:#fff;font-size:.85rem;cursor:pointer;outline:none}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.filter-select{padding:8px 12px;border:1px solid #ddd;border-radius:20px;background:#fff;font-size:.82rem;cursor:pointer;outline:none}
 .filter-select:focus{border-color:#7c3aed}
-.search-box{padding:8px 14px;border:1px solid #ddd;border-radius:20px;font-size:.85rem;width:200px;outline:none}
+.search-box{padding:8px 14px;border:1px solid #ddd;border-radius:20px;font-size:.85rem;width:100%;outline:none;box-sizing:border-box}
 .search-box:focus{border-color:#7c3aed}
+.search-wrap{width:100%}
 /* cards */
 .sort-row{display:flex;justify-content:flex-end;margin-bottom:12px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
 .card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s;position:relative}
 .card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1)}
 .card-thumb{width:100%;height:160px;object-fit:cover;background:#eee;display:flex;align-items:center;justify-content:center;font-size:4rem}
@@ -118,17 +127,17 @@ h2{font-size:1.4rem;font-weight:700;margin-bottom:20px}
 .fav-btn:hover{background:#fff}
 .owner-btns{display:flex;gap:6px;margin-top:8px}
 /* fab */
-.fab{position:fixed;bottom:30px;right:30px;width:56px;height:56px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 5px 15px rgba(124,58,237,.4);transition:.2s}
+.fab{position:fixed;bottom:24px;right:20px;width:52px;height:52px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 5px 15px rgba(124,58,237,.4);transition:.2s;z-index:50}
 .fab:hover{background:#6d28d9;transform:scale(1.08)}
 /* form pages */
-.form-wrap{max-width:520px;margin:48px auto;background:#fff;border-radius:20px;padding:36px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
-.form-wrap h2{margin-bottom:24px}
-.field{margin-bottom:16px}
+.form-wrap{max-width:520px;margin:32px auto;background:#fff;border-radius:20px;padding:28px 20px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.form-wrap h2{margin-bottom:20px}
+.field{margin-bottom:14px}
 .field label{display:block;font-size:.85rem;font-weight:600;margin-bottom:4px;color:#555}
 .field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.9rem;outline:none;transition:.2s;background:#fff}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:#7c3aed}
 .field textarea{resize:vertical;min-height:80px}
-.field-row{display:flex;gap:12px}.field-row .field{flex:1}
+.field-row{display:flex;gap:10px}.field-row .field{flex:1}
 .form-link{text-align:center;margin-top:16px;font-size:.85rem;color:#888}
 .form-link a{color:#7c3aed;font-weight:600}
 .error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 14px;border-radius:10px;font-size:.85rem;margin-bottom:12px}
@@ -137,6 +146,15 @@ h2{font-size:1.4rem;font-weight:700;margin-bottom:20px}
 .user-badge{display:flex;align-items:center;gap:8px;font-size:.85rem}
 .empty{text-align:center;padding:60px 20px;color:#aaa;grid-column:1/-1}
 .empty .ei{font-size:3rem;margin-bottom:8px}
+/* スマホ対応 */
+@media(max-width:640px){
+  nav .nav-link, nav .user-badge, nav .btn-outline{display:none}
+  .hamburger{display:flex}
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .field-row{flex-direction:column;gap:0}
+  .filters{gap:6px}
+  .filter-select{font-size:.78rem;padding:7px 10px}
+}
 </style>
 '''
 
@@ -149,10 +167,10 @@ INDEX_TMPL = '''<!DOCTYPE html>
 <header>
   <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
   <nav>
-    <a href="/" class="active">イベントを探す</a>
-    <a href="{{ url_for('post') }}">イベントを投稿</a>
+    <a href="/" class="nav-link active">イベントを探す</a>
+    <a href="{{ url_for('post') }}" class="nav-link">イベントを投稿</a>
     {% if current_user.is_authenticated %}
-      <a href="{{ url_for('favorites') }}">お気に入り</a>
+      <a href="{{ url_for('favorites') }}" class="nav-link">お気に入り</a>
       <div class="user-badge">
         <div class="avatar">{{ current_user.username[0] }}</div>
         <span>{{ current_user.username }}</span>
@@ -162,8 +180,36 @@ INDEX_TMPL = '''<!DOCTYPE html>
       <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">ログイン</a>
       <a href="{{ url_for('signup') }}" class="btn btn-primary btn-sm">新規登録</a>
     {% endif %}
+    <!-- ハンバーガー -->
+    <button class="hamburger" onclick="toggleMenu()" aria-label="メニュー">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
 </header>
+<!-- モバイルメニュー -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="/">🔍 イベントを探す</a>
+  <a href="{{ url_for('post') }}">➕ イベントを投稿</a>
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('favorites') }}">❤️ お気に入り</a>
+    <a href="{{ url_for('logout') }}">👋 ログアウト ({{ current_user.username }})</a>
+  {% else %}
+    <a href="{{ url_for('login') }}">🔑 ログイン</a>
+    <a href="{{ url_for('signup') }}">✨ 新規登録</a>
+  {% endif %}
+</div>
+<script>
+function toggleMenu(){
+  document.getElementById('mobileMenu').classList.toggle('open');
+}
+document.addEventListener('click', function(e){
+  const menu = document.getElementById('mobileMenu');
+  const btn = document.querySelector('.hamburger');
+  if(!menu.contains(e.target) && !btn.contains(e.target)){
+    menu.classList.remove('open');
+  }
+});
+</script>
 <main>
   <h2>イベントを探す</h2>
   <!-- カテゴリ -->
@@ -198,7 +244,7 @@ INDEX_TMPL = '''<!DOCTYPE html>
       <option value="オンライン" {% if mode=='オンライン' %}selected{% endif %}>オンライン</option>
       <option value="オフライン" {% if mode=='オフライン' %}selected{% endif %}>オフライン</option>
     </select>
-    <input name="q" class="search-box" placeholder="キーワードで検索" value="{{ q }}">
+    <div class="search-wrap"><input name="q" class="search-box" placeholder="キーワードで検索" value="{{ q }}"></div>
     <div class="sort-row" style="margin-left:auto;margin-bottom:0">
       <select name="sort" class="filter-select" onchange="this.form.submit()">
         <option value="new" {% if sort=='new' %}selected{% endif %}>新着順</option>
