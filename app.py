@@ -7,11 +7,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- 🌟 パス設定 ---
+# --- パス設定 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
-# 投稿用画像は uploads へ、カテゴリ用は images 直下
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -44,7 +43,7 @@ def load_users_data():
 def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f: json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 カテゴリ定義：All / Mix を先頭に移動しました！ ---
+# カテゴリ定義
 categories = [
     {'id': 'all', 'name': 'All / Mix', 'jp': '誰でもOK', 'icon': 'icon_all.png', 'color': '#f8f9fa'},
     {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
@@ -55,17 +54,18 @@ categories = [
     {'id': 'ally', 'name': 'Ally', 'jp': 'アライ', 'icon': 'icon_all.png', 'color': '#fffbeb'},
 ]
 
+# エリア選択肢
+areas = ['関西', '関東', 'オンライン', 'その他']
+
 COMMON_STYLE = '''
 <style>
     :root { --pink: #ff6b81; }
     body { background-color: #fafbfc; font-family: sans-serif; }
     .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
-    /* カテゴリボタン：PCで横一列、中身に画像を表示 */
     .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
     .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
     .cat-card.active { border-color: var(--pink); background-color: #fff !important; }
     .cat-icon-img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; }
-    /* カードの細長さを解消 */
     .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
     .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .pickup-badge { position: absolute; top: 15px; left: 15px; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
@@ -93,7 +93,8 @@ INDEX_TEMPLATE = '''
                 {% if current_user.is_authenticated %}
                     <a href="/logout" class="btn btn-outline-secondary btn-sm rounded-pill">Logout ({{ current_user.username }})</a>
                 {% else %}
-                    <a href="/login" class="btn btn-outline-pink btn-sm">Login</a>
+                    <a href="/login" class="btn btn-outline-pink btn-sm me-2">ログイン</a>
+                    <a href="/signup" class="btn btn-pink btn-sm">新規登録</a>
                 {% endif %}
             </div>
         </div>
@@ -102,7 +103,6 @@ INDEX_TEMPLATE = '''
     <div class="container pb-5">
         <h2 class="fw-bold mb-4">イベントを探す</h2>
 
-        <!-- カテゴリボタン：All/Mix が最初に来ます -->
         <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5">
             {% for cat in categories %}
             <div class="col">
@@ -115,15 +115,14 @@ INDEX_TEMPLATE = '''
             {% endfor %}
         </div>
 
-        <!-- 検索バー -->
         <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
             <input type="hidden" name="category" value="{{ active_cat }}">
             <div class="col-6 col-md-2">
                 <select name="area" class="form-select border-0 shadow-sm" style="border-radius:10px; height:45px;" onchange="this.form.submit()">
-                    <option value="">エリア</option>
-                    <option value="東京" {% if request.args.get('area') == '東京' %}selected{% endif %}>東京</option>
-                    <option value="大阪" {% if request.args.get('area') == '大阪' %}selected{% endif %}>大阪</option>
-                    <option value="オンライン" {% if request.args.get('area') == 'オンライン' %}selected{% endif %}>オンライン</option>
+                    <option value="">すべてのエリア</option>
+                    {% for a in ['関西', '関東', 'オンライン', 'その他'] %}
+                    <option value="{{ a }}" {% if request.args.get('area') == a %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
                 </select>
             </div>
             <div class="col-12 col-md-6">
@@ -140,7 +139,6 @@ INDEX_TEMPLATE = '''
             </div>
         </form>
 
-        <!-- 投稿カード -->
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
             {% for event in events %}
             <div class="col">
@@ -149,8 +147,8 @@ INDEX_TEMPLATE = '''
                     <div class="pickup-badge">PICK UP</div>
                     <div class="p-3">
                         <h6 class="fw-bold mb-2 text-truncate">{{ event.title }}</h6>
-                        <div class="small text-muted mb-1"><i class="bi bi-calendar"></i> {{ event.date or '2024.06.01' }}</div>
-                        <div class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> {{ event.location }}</div>
+                        <div class="small text-muted mb-1"><i class="bi bi-calendar"></i> {{ event.date or '日付未設定' }}</div>
+                        <div class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> [{{ event.area }}] {{ event.location_detail }}</div>
                         <div class="d-flex justify-content-between align-items-center mt-auto">
                             <span class="badge rounded-pill bg-light text-primary border px-3 small">{{ event.category }}</span>
                             {% if current_user.is_authenticated and event.user_id == current_user.id|int %}
@@ -168,27 +166,47 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- (SIGNUP, LOGIN, POST, EDIT のテンプレートは最新のものを維持) ---
-SIGNUP_TEMPLATE = '''
+POST_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
-    <div class="container py-5" style="max-width:400px;">
-        <div class="card p-4 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">Signup</h2>
-            <form method="POST">
-                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
-                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2">登録して始める</button>
+    <div class="container py-5" style="max-width:600px;">
+        <div class="card p-5 shadow border-0" style="border-radius:20px;">
+            <h2 class="fw-bold mb-4">イベントを投稿</h2>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
+                    <select name="category" class="form-select">
+                        {% for cat in categories if cat.id != 'all' %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">エリア</label>
+                    <select name="area" class="form-select" required>
+                        <option value="">選択してください</option>
+                        <option value="関西">関西</option>
+                        <option value="関東">関東</option>
+                        <option value="オンライン">オンライン</option>
+                        <option value="その他">その他</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">詳細な場所</label>
+                    <input type="text" name="location_detail" class="form-control" placeholder="例: 大阪市北区 / Zoomなど">
+                </div>
+                <div class="mb-3"><label class="form-label small fw-bold">日付</label><input type="date" name="date" class="form-control"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">画像</label><input type="file" name="image" class="form-control"></div>
+                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">投稿する</button>
             </form>
-            <div class="text-center mt-3"><a href="/login" class="text-muted small text-decoration-none">ログインはこちら</a></div>
+            <a href="/" class="d-block text-center mt-3 text-muted small text-decoration-none">キャンセル</a>
         </div>
     </div>
 </body>
 </html>
 '''
 
+# (LOGIN_TEMPLATE, SIGNUP_TEMPLATE, EDIT_TEMPLATE も同様に更新)
 LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -209,27 +227,20 @@ LOGIN_TEMPLATE = '''
 </html>
 '''
 
-POST_TEMPLATE = '''
+SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
 <head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
 <body>
-    <div class="container py-5" style="max-width:600px;">
-        <div class="card p-5 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">イベントを投稿</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
-                    <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3"><label class="form-label small fw-bold">場所</label><input type="text" name="location" class="form-control" placeholder="例: 大阪・梅田"></div>
-                <div class="mb-3"><label class="form-label small fw-bold">日付</label><input type="date" name="date" class="form-control"></div>
-                <div class="mb-3"><label class="form-label small fw-bold">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">投稿する</button>
+    <div class="container py-5" style="max-width:400px;">
+        <div class="card p-4 shadow border-0" style="border-radius:20px;">
+            <h2 class="fw-bold mb-4">Signup</h2>
+            <form method="POST">
+                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
+                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
+                <button type="submit" class="btn btn-pink w-100 py-2">登録して始める</button>
             </form>
-            <a href="/" class="d-block text-center mt-3 text-muted small text-decoration-none">キャンセル</a>
+            <div class="text-center mt-3"><a href="/login" class="text-muted small text-decoration-none">ログインはこちら</a></div>
         </div>
     </div>
 </body>
@@ -246,28 +257,28 @@ EDIT_TEMPLATE = '''
             <h2 class="fw-bold mb-4">編集する</h2>
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
-                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
-                    <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}
-                        <option value="{{ cat.id }}" {% if event.category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">エリア</label>
+                    <select name="area" class="form-select">
+                        {% for a in ['関西', '関東', 'オンライン', 'その他'] %}
+                        <option value="{{ a }}" {% if event.area == a %}selected{% endif %}>{{ a }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="mb-3"><label class="form-label small fw-bold">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">詳細な場所</label><input type="text" name="location_detail" class="form-control" value="{{ event.location_detail }}"></div>
                 <div class="mb-3"><label class="form-label small fw-bold">画像を変更</label><input type="file" name="image" class="form-control"></div>
                 <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">更新する</button>
             </form>
             <form action="/delete/{{ event.id }}" method="POST" class="mt-3" onsubmit="return confirm('本当に削除しますか？')">
                 <button type="submit" class="btn btn-link w-100 text-danger text-decoration-none small">この投稿を削除する</button>
             </form>
-            <a href="/" class="d-block text-center mt-1 text-muted small text-decoration-none">キャンセル</a>
         </div>
     </div>
 </body>
 </html>
 '''
 
-# --- ルート設定 ---
+# ルート設定
 @app.route('/')
 def index():
     all_events = load_events()
@@ -277,8 +288,8 @@ def index():
     sort = request.args.get('sort', 'new')
     filtered = all_events
     if cat != 'all': filtered = [e for e in filtered if e.get('category') == cat]
-    if area: filtered = [e for e in filtered if area in e.get('location', '')]
-    if query: filtered = [e for e in filtered if query in e.get('title', '').lower()]
+    if area: filtered = [e for e in filtered if e.get('area') == area]
+    if query: filtered = [e for e in filtered if query in e.get('title', '').lower() or query in e.get('location_detail', '').lower()]
     if sort == 'new': filtered.reverse()
     return render_template_string(INDEX_TEMPLATE, events=filtered, categories=categories, active_cat=cat, current_user=current_user)
 
@@ -321,7 +332,16 @@ def post():
             if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             image_url = '/static/images/uploads/' + filename
-        events.append({"id": int(os.urandom(4).hex(), 16), "user_id": int(current_user.id), "title": request.form.get('title'), "category": request.form.get('category'), "location": request.form.get('location'), "date": request.form.get('date'), "image_url": image_url})
+        events.append({
+            "id": int(os.urandom(4).hex(), 16),
+            "user_id": int(current_user.id),
+            "title": request.form.get('title'),
+            "category": request.form.get('category'),
+            "area": request.form.get('area'), # 🌟 エリア項目追加
+            "location_detail": request.form.get('location_detail'), # 🌟 詳細追加
+            "date": request.form.get('date'),
+            "image_url": image_url
+        })
         save_events(events)
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE, categories=categories)
@@ -333,11 +353,13 @@ def edit_event(event_id):
     event = next((e for e in events if e.get('id') == event_id), None)
     if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
     if request.method == 'POST':
-        event['title'], event['location'], event['category'] = request.form.get('title'), request.form.get('location'), request.form.get('category')
+        event['title'] = request.form.get('title')
+        event['area'] = request.form.get('area')
+        event['location_detail'] = request.form.get('location_detail')
+        event['category'] = request.form.get('category')
         image_file = request.files.get('image')
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
-            if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
             image_file.save(os.path.join(UPLOAD_FOLDER, filename))
             event['image_url'] = '/static/images/uploads/' + filename
         save_events(events); return redirect(url_for('index'))
