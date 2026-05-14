@@ -1,40 +1,50 @@
 import os
-from flask import Flask, render_template_string, request, redirect, url_for
+from flask import Flask, render_template_string, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'soyoka-secret-key'
+app.config['SECRET_KEY'] = 'lgbtq-event-board-secret'
 
-# --- 🌟 インフラ設定：DBの接続先 ---
+# --- DB設定 ---
 database_url = os.environ.get('DATABASE_URL')
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
-
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local_test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- 🌟 データモデル（データベースの設計図） ---
+# --- モデル ---
 class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
+    id       = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
+    email    = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
 class Event(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
-    title = db.Column(db.String(100), nullable=False)
-    category = db.Column(db.String(50))
-    area = db.Column(db.String(50)) # 関西・関東など
-    location_detail = db.Column(db.String(200)) # 詳細な場所
-    date = db.Column(db.String(50))
-    image_url = db.Column(db.String(500))
+    id              = db.Column(db.Integer, primary_key=True)
+    user_id         = db.Column(db.Integer, nullable=False)
+    title           = db.Column(db.String(100), nullable=False)
+    category        = db.Column(db.String(50))
+    area            = db.Column(db.String(50))
+    location_detail = db.Column(db.String(200))
+    date            = db.Column(db.String(50))
+    time            = db.Column(db.String(10))
+    event_type      = db.Column(db.String(50))   # パレード / 交流会 / etc
+    mode            = db.Column(db.String(20))    # オンライン / オフライン
+    description     = db.Column(db.Text)
+    emoji           = db.Column(db.String(10), default='🌈')
+    image_url       = db.Column(db.String(500))
+    is_pickup       = db.Column(db.Boolean, default=False)
 
-# データベースの初期化
+class Favorite(db.Model):
+    id       = db.Column(db.Integer, primary_key=True)
+    user_id  = db.Column(db.Integer, nullable=False)
+    event_id = db.Column(db.Integer, nullable=False)
+
 with app.app_context():
     db.create_all()
 
@@ -47,322 +57,535 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- カテゴリ・エリア定義 ---
-categories = [
-    {'id': 'all', 'name': 'All / Mix', 'jp': '誰でもOK', 'icon': 'icon_all.png', 'color': '#f8f9fa'},
-    {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
-    {'id': 'gay', 'name': 'Gay', 'jp': 'ゲイ', 'icon': 'icon_gay.png', 'color': '#fff4ec'},
-    {'id': 'bisexual', 'name': 'Bisexual', 'jp': 'バイセクシュアル', 'icon': 'icon_bi.png', 'color': '#f3f0ff'},
-    {'id': 'transgender', 'name': 'Transgender', 'jp': 'トランスジェンダー', 'icon': 'icon_trans.png', 'color': '#eef9ff'},
-    {'id': 'queer', 'name': 'Queer', 'jp': 'クィア', 'icon': 'icon_queer.png', 'color': '#f0fff4'},
-    {'id': 'ally', 'name': 'Ally', 'jp': 'アライ', 'icon': 'icon_all.png', 'color': '#fffbeb'},
+# --- 定数 ---
+CATEGORIES = [
+    {'id': 'Lesbian',    'ja': 'レズビアン',    'icon': '🩷', 'color': '#e84393', 'bg': '#fce7f3'},
+    {'id': 'Gay',        'ja': 'ゲイ',          'icon': '🧡', 'color': '#f97316', 'bg': '#fff7ed'},
+    {'id': 'Bisexual',   'ja': 'バイセクシュアル','icon': '💜', 'color': '#a855f7', 'bg': '#faf5ff'},
+    {'id': 'Transgender','ja': 'トランスジェンダー','icon':'⚡', 'color': '#3b82f6', 'bg': '#eff6ff'},
+    {'id': 'Queer',      'ja': 'クィア',        'icon': '🌿', 'color': '#22c55e', 'bg': '#f0fdf4'},
+    {'id': 'Ally',       'ja': 'アライ',        'icon': '⭐', 'color': '#eab308', 'bg': '#fefce8'},
+    {'id': 'All / Mix',  'ja': '誰でもOK',      'icon': '🌈', 'color': '#7c3aed', 'bg': '#f5f3ff'},
 ]
+EVENT_TYPES = ['パレード', '交流会', 'サポート', 'パーティー', '講演']
+AREAS       = ['東京', '大阪', '名古屋', '福岡', 'オンライン', 'その他']
 
-COMMON_STYLE = '''
+# --- 共通CSS ---
+STYLE = '''
 <style>
-    :root { --pink: #ff6b81; }
-    body { background-color: #fafbfc; font-family: sans-serif; color: #333; }
-    .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
-    .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
-    .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-    .cat-card.active { border-color: var(--pink); background-color: #fff !important; }
-    .cat-icon-img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; }
-    .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
-    .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-    .pickup-badge { position: absolute; top: 15px; left: 15px; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-    .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; padding: 10px 20px; font-weight: bold; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f7f8fc;color:#333;min-height:100vh}
+a{text-decoration:none;color:inherit}
+header{background:#fff;border-bottom:1px solid #eee;padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.logo{font-size:1.2rem;font-weight:700;background:linear-gradient(90deg,#e40303,#ff8c00,#ffed00,#008026,#004dff,#750787);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+nav{display:flex;gap:20px;align-items:center}
+nav a{color:#555;font-size:.9rem;padding:4px 0;border-bottom:2px solid transparent;transition:.2s}
+nav a.active,nav a:hover{color:#7c3aed;border-bottom-color:#7c3aed}
+.btn{padding:8px 18px;border-radius:20px;border:none;cursor:pointer;font-size:.85rem;font-weight:600;transition:.2s;display:inline-block}
+.btn-primary{background:#7c3aed;color:#fff}.btn-primary:hover{background:#6d28d9}
+.btn-outline{background:#fff;color:#7c3aed;border:2px solid #7c3aed}.btn-outline:hover{background:#f5f3ff}
+.btn-sm{padding:5px 14px;font-size:.8rem}
+.btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
+.btn-warn{background:#f59e0b;color:#fff}.btn-warn:hover{background:#d97706}
+main{max-width:1200px;margin:0 auto;padding:32px 24px}
+h2{font-size:1.4rem;font-weight:700;margin-bottom:20px}
+/* cats */
+.cats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.cat{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 16px;border-radius:12px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:80px;transition:.2s;text-decoration:none;color:inherit}
+.cat:hover,.cat.active{border-color:var(--c);background:var(--bg)}
+.cat-icon{font-size:1.4rem}
+.cat-en{font-size:.75rem;font-weight:700;color:var(--c)}
+.cat-ja{font-size:.7rem;color:#888}
+/* filters */
+.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-select{padding:8px 14px;border:1px solid #ddd;border-radius:20px;background:#fff;font-size:.85rem;cursor:pointer;outline:none}
+.filter-select:focus{border-color:#7c3aed}
+.search-box{padding:8px 14px;border:1px solid #ddd;border-radius:20px;font-size:.85rem;width:200px;outline:none}
+.search-box:focus{border-color:#7c3aed}
+/* cards */
+.sort-row{display:flex;justify-content:flex-end;margin-bottom:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06);transition:.2s;position:relative}
+.card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1)}
+.card-thumb{width:100%;height:160px;object-fit:cover;background:#eee;display:flex;align-items:center;justify-content:center;font-size:4rem}
+.card-body{padding:14px}
+.card-title{font-weight:700;font-size:.95rem;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-meta{font-size:.78rem;color:#666;display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:600;background:#f3e8ff;color:#7c3aed}
+.pick{position:absolute;top:10px;left:10px;background:#ef4444;color:#fff;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:6px}
+.fav-form{position:absolute;top:8px;right:8px}
+.fav-btn{background:#ffffffcc;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.fav-btn:hover{background:#fff}
+.owner-btns{display:flex;gap:6px;margin-top:8px}
+/* fab */
+.fab{position:fixed;bottom:30px;right:30px;width:56px;height:56px;background:#7c3aed;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 5px 15px rgba(124,58,237,.4);transition:.2s}
+.fab:hover{background:#6d28d9;transform:scale(1.08)}
+/* form pages */
+.form-wrap{max-width:520px;margin:48px auto;background:#fff;border-radius:20px;padding:36px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
+.form-wrap h2{margin-bottom:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.85rem;font-weight:600;margin-bottom:4px;color:#555}
+.field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.9rem;outline:none;transition:.2s;background:#fff}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#7c3aed}
+.field textarea{resize:vertical;min-height:80px}
+.field-row{display:flex;gap:12px}.field-row .field{flex:1}
+.form-link{text-align:center;margin-top:16px;font-size:.85rem;color:#888}
+.form-link a{color:#7c3aed;font-weight:600}
+.error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:10px 14px;border-radius:10px;font-size:.85rem;margin-bottom:12px}
+/* user badge */
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.user-badge{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.empty{text-align:center;padding:60px 20px;color:#aaa;grid-column:1/-1}
+.empty .ei{font-size:3rem;margin-bottom:8px}
 </style>
 '''
 
-# --- テンプレート (INDEX, POST, EDIT, LOGIN, SIGNUP) ---
-INDEX_TEMPLATE = '''
-<!DOCTYPE html>
+# --- テンプレート: INDEX ---
+INDEX_TMPL = '''<!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>LGBTQ+ Event Board</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    ''' + COMMON_STYLE + '''
-</head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LGBTQ+ Event Board 🌈</title>''' + STYLE + '''</head>
 <body>
-    <nav class="nav-bar shadow-sm mb-4">
-        <div class="container d-flex justify-content-between align-items-center">
-            <a class="fw-bold fs-4 text-decoration-none" href="/"><span style="color:var(--pink)">LGBTQ+</span> Event Board 🌈</a>
-            <div class="d-flex align-items-center">
-                <a href="/" class="nav-link text-decoration-none me-3" style="color:var(--pink)">イベントを探す</a>
-                <a href="/post" class="nav-link text-decoration-none me-3 text-dark">イベントを投稿</a>
-                {% if current_user.is_authenticated %}
-                    <a href="/logout" class="btn btn-outline-secondary btn-sm rounded-pill small">Logout ({{ current_user.username }})</a>
-                {% else %}
-                    <a href="/login" class="btn btn-outline-pink btn-sm me-2">ログイン</a>
-                    <a href="/signup" class="btn btn-pink btn-sm">新規登録</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
-
-    <div class="container pb-5">
-        <h2 class="fw-bold mb-4">イベントを探す</h2>
-
-        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5">
-            {% for cat in categories %}
-            <div class="col">
-                <a href="/?category={{ cat.id }}" class="cat-card {% if active_cat == cat.id %}active{% endif %}" style="background-color: {{ cat.color }};">
-                    <img src="{{ url_for('static', filename='images/' + cat.icon) }}" class="cat-icon-img" onerror="this.src='https://via.placeholder.com/45?text=Icon'">
-                    <div class="fw-bold" style="font-size: 13px;">{{ cat.name }}</div>
-                    <div class="text-muted" style="font-size: 10px;">({{ cat.jp }})</div>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-
-        <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
-            <input type="hidden" name="category" value="{{ active_cat }}">
-            <div class="col-6 col-md-2">
-                <select name="area" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
-                    <option value="">エリア</option>
-                    {% for a in ['関西', '関東', 'オンライン', 'その他'] %}
-                    <option value="{{ a }}" {% if request.args.get('area') == a %}selected{% endif %}>{{ a }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-12 col-md-6">
-                <div class="position-relative">
-                    <input type="text" name="q" class="form-control border-0 shadow-sm" style="border-radius:10px; height:45px;" placeholder="キーワードで検索" value="{{ request.args.get('q', '') }}">
-                    <i class="bi bi-search position-absolute" style="right:15px; top:12px; color:#999"></i>
-                </div>
-            </div>
-            <div class="col-6 col-md-2 ms-auto">
-                <select name="sort" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
-                    <option value="new" {% if request.args.get('sort') == 'new' %}selected{% endif %}>新着順</option>
-                    <option value="old" {% if request.args.get('sort') == 'old' %}selected{% endif %}>古い順</option>
-                </select>
-            </div>
+<header>
+  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+  <nav>
+    <a href="/" class="active">イベントを探す</a>
+    <a href="{{ url_for('post') }}">イベントを投稿</a>
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('favorites') }}">お気に入り</a>
+      <div class="user-badge">
+        <div class="avatar">{{ current_user.username[0] }}</div>
+        <span>{{ current_user.username }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">ログアウト</a>
+      </div>
+    {% else %}
+      <a href="{{ url_for('login') }}" class="btn btn-outline btn-sm">ログイン</a>
+      <a href="{{ url_for('signup') }}" class="btn btn-primary btn-sm">新規登録</a>
+    {% endif %}
+  </nav>
+</header>
+<main>
+  <h2>イベントを探す</h2>
+  <!-- カテゴリ -->
+  <div class="cats">
+    <a href="/" class="cat {% if not active_cat %}active{% endif %}" style="--c:#7c3aed;--bg:#f5f3ff">
+      <span class="cat-icon">✨</span>
+      <span class="cat-en" style="color:#7c3aed">All</span>
+      <span class="cat-ja">すべて</span>
+    </a>
+    {% for c in categories %}
+    <a href="/?cat={{ c.id }}&area={{ area }}&mode={{ mode }}&type={{ etype }}&q={{ q }}&sort={{ sort }}"
+       class="cat {% if active_cat == c.id %}active{% endif %}" style="--c:{{ c.color }};--bg:{{ c.bg }}">
+      <span class="cat-icon">{{ c.icon }}</span>
+      <span class="cat-en" style="color:{{ c.color }}">{{ c.id }}</span>
+      <span class="cat-ja">{{ c.ja }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <!-- フィルター -->
+  <form method="GET" action="/" class="filters">
+    <input type="hidden" name="cat" value="{{ active_cat }}">
+    <select name="area" class="filter-select" onchange="this.form.submit()">
+      <option value="">エリア 全て</option>
+      {% for a in areas %}<option value="{{ a }}" {% if area==a %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+    <select name="type" class="filter-select" onchange="this.form.submit()">
+      <option value="">イベント種類 全て</option>
+      {% for t in event_types %}<option value="{{ t }}" {% if etype==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+    </select>
+    <select name="mode" class="filter-select" onchange="this.form.submit()">
+      <option value="">オンライン/オフライン</option>
+      <option value="オンライン" {% if mode=='オンライン' %}selected{% endif %}>オンライン</option>
+      <option value="オフライン" {% if mode=='オフライン' %}selected{% endif %}>オフライン</option>
+    </select>
+    <input name="q" class="search-box" placeholder="キーワードで検索" value="{{ q }}">
+    <div class="sort-row" style="margin-left:auto;margin-bottom:0">
+      <select name="sort" class="filter-select" onchange="this.form.submit()">
+        <option value="new" {% if sort=='new' %}selected{% endif %}>新着順</option>
+        <option value="date" {% if sort=='date' %}selected{% endif %}>日付順</option>
+      </select>
+    </div>
+  </form>
+  <!-- カード -->
+  <div class="cards">
+    {% if events %}
+      {% for e in events %}
+      <div class="card">
+        {% if e.image_url and not e.image_url.startswith('emoji:') %}
+          <img class="card-thumb" src="{{ e.image_url }}" alt="{{ e.title }}">
+        {% else %}
+          <div class="card-thumb">{{ e.emoji or '🌈' }}</div>
+        {% endif %}
+        {% if e.is_pickup %}<div class="pick">PICK UP</div>{% endif %}
+        <!-- お気に入りボタン -->
+        {% if current_user.is_authenticated %}
+        <form class="fav-form" method="POST" action="{{ url_for('toggle_fav', event_id=e.id) }}">
+          <button class="fav-btn" title="お気に入り">{{ '❤️' if e.id in fav_ids else '🤍' }}</button>
         </form>
-
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
-            {% for event in events %}
-            <div class="col">
-                <div class="event-card shadow-sm border position-relative">
-                    <img src="{{ event.image_url }}" class="w-100" style="height:200px; object-fit:cover;">
-                    <div class="pickup-badge">PICK UP</div>
-                    <div class="p-3">
-                        <h6 class="fw-bold mb-2 text-truncate">{{ event.title }}</h6>
-                        <div class="small text-muted mb-1"><i class="bi bi-calendar"></i> {{ event.date or '日付未設定' }}</div>
-                        <div class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> [{{ event.area or '未設定' }}] {{ event.location_detail }}</div>
-                        <div class="d-flex justify-content-between align-items-center mt-auto">
-                            <span class="badge rounded-pill bg-light text-primary border px-3 small">{{ event.category }}</span>
-                            {% if current_user.is_authenticated and event.user_id == current_user.id %}
-                                <a href="/edit/{{ event.id }}" class="text-muted"><i class="bi bi-pencil-square"></i></a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+        {% endif %}
+        <div class="card-body">
+          <div class="card-title">{{ e.title }}</div>
+          <div class="card-meta">
+            <span>📅 {{ e.date or '日付未定' }}{% if e.time %} {{ e.time }}〜{% endif %}</span>
+            <span>📍 {{ e.area or '未定' }}{% if e.location_detail %} · {{ e.location_detail }}{% endif %} · {{ e.mode or '' }}</span>
+          </div>
+          <span class="tag">{{ e.event_type or e.category }}</span>
+          {% if current_user.is_authenticated and e.user_id == current_user.id %}
+          <div class="owner-btns">
+            <a href="{{ url_for('edit_event', event_id=e.id) }}" class="btn btn-warn btn-sm">✏️ 編集</a>
+            <form method="POST" action="{{ url_for('delete_event', event_id=e.id) }}" style="display:inline" onsubmit="return confirm('削除しますか？')">
+              <button class="btn btn-danger btn-sm">🗑 削除</button>
+            </form>
+          </div>
+          {% endif %}
         </div>
-    </div>
-    <a href="/post" style="position:fixed; bottom:30px; right:30px; width:60px; height:60px; background:var(--pink); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow:0 5px 15px rgba(255,107,129,0.4); text-decoration:none;"><i class="bi bi-plus-lg"></i></a>
-</body>
-</html>
-'''
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty"><div class="ei">🌈</div><p>イベントが見つかりませんでした</p></div>
+    {% endif %}
+  </div>
+</main>
+<a href="{{ url_for('post') }}" class="fab">＋</a>
+</body></html>'''
 
-POST_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+# --- テンプレート: POST/EDIT ---
+def post_edit_tmpl(title, action, event=None):
+    v = lambda f, d='': getattr(event, f, d) or d if event else d
+    cats_opts = ''.join(
+        f'<option value="{c["id"]}" {"selected" if v("category")==c["id"] else ""}>{c["id"]} {c["icon"]}</option>'
+        for c in CATEGORIES
+    )
+    area_opts = ''.join(
+        f'<option value="{a}" {"selected" if v("area")==a else ""}>{a}</option>'
+        for a in AREAS
+    )
+    type_opts = ''.join(
+        f'<option value="{t}" {"selected" if v("event_type")==t else ""}>{t}</option>'
+        for t in EVENT_TYPES
+    )
+    delete_btn = f'''
+    <form method="POST" action="/delete/{event.id}" style="margin-top:12px" onsubmit="return confirm('削除しますか？')">
+      <button class="btn btn-danger" style="width:100%">🗑 この投稿を削除する</button>
+    </form>''' if event else ''
+
+    return f'''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>{title}</title>{STYLE}</head>
 <body>
-    <div class="container py-5" style="max-width:600px;">
-        <div class="card p-5 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">イベントを投稿</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
-                    <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">エリア</label>
-                    <select name="area" class="form-select" required>
-                        <option value="">選択してください</option>
-                        <option value="関西">関西</option><option value="関東">関東</option>
-                        <option value="オンライン">オンライン</option><option value="その他">その他</option>
-                    </select>
-                </div>
-                <div class="mb-3"><label class="form-label small fw-bold">詳細な場所</label><input type="text" name="location_detail" class="form-control" placeholder="例: 大阪市北区 / Zoomなど"></div>
-                <div class="mb-3"><label class="form-label small fw-bold">日付</label><input type="date" name="date" class="form-control"></div>
-                <div class="mb-3"><label class="form-label small fw-bold">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3">投稿する</button>
-            </form>
-            <a href="/" class="d-block text-center mt-3 text-muted small text-decoration-none">キャンセル</a>
-        </div>
+<header>
+  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+  <nav><a href="/">← トップに戻る</a></nav>
+</header>
+<div class="form-wrap">
+  <h2>{title}</h2>
+  {{% if error %}}<div class="error">{{{{ error }}}}</div>{{% endif %}}
+  <form method="POST" enctype="multipart/form-data" action="{action}">
+    <div class="field"><label>イベント名 *</label>
+      <input type="text" name="title" value="{v('title')}" required placeholder="例: Tokyo Pride Parade 2025">
     </div>
-</body>
-</html>
-'''
+    <div class="field-row">
+      <div class="field"><label>カテゴリ *</label>
+        <select name="category" required><option value="">選択</option>{cats_opts}</select>
+      </div>
+      <div class="field"><label>イベント種類</label>
+        <select name="event_type"><option value="">選択</option>{type_opts}</select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>日付</label>
+        <input type="date" name="date" value="{v('date')}">
+      </div>
+      <div class="field"><label>時間</label>
+        <input type="time" name="time" value="{v('time')}">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>エリア</label>
+        <select name="area"><option value="">選択</option>{area_opts}</select>
+      </div>
+      <div class="field"><label>形式</label>
+        <select name="mode">
+          <option value="オフライン" {"selected" if v("mode")=="オフライン" else ""}>オフライン</option>
+          <option value="オンライン" {"selected" if v("mode")=="オンライン" else ""}>オンライン</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>詳細な場所</label>
+      <input type="text" name="location_detail" value="{v('location_detail')}" placeholder="例: 渋谷区 / Zoom">
+    </div>
+    <div class="field"><label>説明</label>
+      <textarea name="description">{v('description')}</textarea>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>絵文字アイコン</label>
+        <input type="text" name="emoji" value="{v('emoji','🌈')}" maxlength="4" placeholder="🌈">
+      </div>
+      <div class="field"><label>画像ファイル</label>
+        <input type="file" name="image" accept="image/*">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;border-radius:12px;margin-top:8px">
+      {"更新する" if event else "投稿する"}
+    </button>
+  </form>
+  {delete_btn}
+</div>
+</body></html>'''
 
-SIGNUP_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+# --- テンプレート: AUTH ---
+AUTH_TMPL = '''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>{{ page_title }}</title>''' + STYLE + '''</head>
 <body>
-    <div class="container py-5" style="max-width:400px;">
-        <div class="card p-4 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">Signup</h2>
-            <form method="POST">
-                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
-                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2">登録して始める</button>
-            </form>
-            <div class="text-center mt-3"><a href="/login" class="text-muted small text-decoration-none">ログインはこちら</a></div>
-        </div>
+<header>
+  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+</header>
+<div class="form-wrap">
+  <h2>{{ page_title }}</h2>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST">
+    {% if is_signup %}
+    <div class="field"><label>ユーザー名</label>
+      <input type="text" name="username" required placeholder="ニックネーム">
     </div>
-</body>
-</html>
-'''
+    {% endif %}
+    <div class="field"><label>メールアドレス</label>
+      <input type="email" name="email" required placeholder="example@email.com">
+    </div>
+    <div class="field"><label>パスワード{% if is_signup %}（8文字以上）{% endif %}</label>
+      <input type="password" name="password" required placeholder="パスワード">
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;border-radius:12px;margin-top:8px">
+      {{ '登録して始める' if is_signup else 'ログイン' }}
+    </button>
+  </form>
+  <div class="form-link">
+    {% if is_signup %}
+      アカウントをお持ちの方は <a href="{{ url_for('login') }}">ログイン</a>
+    {% else %}
+      アカウントをお持ちでない方は <a href="{{ url_for('signup') }}">新規登録</a>
+    {% endif %}
+  </div>
+</div>
+</body></html>'''
 
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+# --- テンプレート: FAVORITES ---
+FAVS_TMPL = '''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><title>お気に入り</title>''' + STYLE + '''</head>
 <body>
-    <div class="container py-5" style="max-width:400px;">
-        <div class="card p-4 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">Login</h2>
-            <form method="POST">
-                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
-                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2">ログイン</button>
-            </form>
-            <div class="text-center mt-3"><a href="/signup" class="text-muted small text-decoration-none">新規登録はこちら</a></div>
+<header>
+  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+  <nav>
+    <a href="/">イベントを探す</a>
+    <a href="{{ url_for('favorites') }}" class="active">お気に入り</a>
+    <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">ログアウト</a>
+  </nav>
+</header>
+<main>
+  <h2>❤️ お気に入り</h2>
+  <div class="cards">
+    {% if events %}
+      {% for e in events %}
+      <div class="card">
+        {% if e.image_url %}<img class="card-thumb" src="{{ e.image_url }}">
+        {% else %}<div class="card-thumb">{{ e.emoji or '🌈' }}</div>{% endif %}
+        <form class="fav-form" method="POST" action="{{ url_for('toggle_fav', event_id=e.id) }}">
+          <button class="fav-btn">❤️</button>
+        </form>
+        <div class="card-body">
+          <div class="card-title">{{ e.title }}</div>
+          <div class="card-meta">
+            <span>📅 {{ e.date or '日付未定' }}{% if e.time %} {{ e.time }}〜{% endif %}</span>
+            <span>📍 {{ e.area or '未定' }} · {{ e.mode or '' }}</span>
+          </div>
+          <span class="tag">{{ e.event_type or e.category }}</span>
         </div>
-    </div>
-</body>
-</html>
-'''
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty"><div class="ei">💝</div><p>お気に入りはまだありません</p></div>
+    {% endif %}
+  </div>
+</main>
+</body></html>'''
 
-EDIT_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width:600px;">
-        <div class="card p-5 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">編集する</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">エリア</label>
-                    <select name="area" class="form-select">
-                        {% for a in ['関西', '関東', 'オンライン', 'その他'] %}
-                        <option value="{{ a }}" {% if event.area == a %}selected{% endif %}>{{ a }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3"><label class="form-label small fw-bold">詳細な場所</label><input type="text" name="location_detail" class="form-control" value="{{ event.location_detail }}"></div>
-                <div class="mb-3"><label class="form-label small fw-bold">画像を変更</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">更新する</button>
-            </form>
-            <form action="/delete/{{ event.id }}" method="POST" class="mt-3" onsubmit="return confirm('本当に削除しますか？')">
-                <button type="submit" class="btn btn-link w-100 text-danger text-decoration-none small">この投稿を削除する</button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>
-'''
+# ===== ROUTES =====
 
-# --- ルート設定 (データベース版) ---
 @app.route('/')
 def index():
-    cat = request.args.get('category', 'all')
-    area = request.args.get('area', '')
-    query = request.args.get('q', '').lower()
-    sort = request.args.get('sort', 'new')
+    cat   = request.args.get('cat', '')
+    area  = request.args.get('area', '')
+    mode  = request.args.get('mode', '')
+    etype = request.args.get('type', '')
+    q     = request.args.get('q', '')
+    sort  = request.args.get('sort', 'new')
 
-    q = Event.query
-    if cat != 'all': q = q.filter_by(category=cat)
-    if area: q = q.filter_by(area=area)
-    if query: q = q.filter(Event.title.ilike(f'%{query}%') | Event.location_detail.ilike(f'%{query}%'))
-    
-    events = q.all()
-    if sort == 'new': events.reverse()
-    
-    return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=cat, current_user=current_user)
+    query = Event.query
+    if cat:   query = query.filter_by(category=cat)
+    if area:  query = query.filter_by(area=area)
+    if mode:  query = query.filter_by(mode=mode)
+    if etype: query = query.filter_by(event_type=etype)
+    if q:     query = query.filter(
+        Event.title.ilike(f'%{q}%') | Event.description.ilike(f'%{q}%')
+    )
+
+    events = query.all()
+    if sort == 'new':  events = list(reversed(events))
+    elif sort == 'date': events.sort(key=lambda e: e.date or '')
+
+    fav_ids = set()
+    if current_user.is_authenticated:
+        fav_ids = {f.event_id for f in Favorite.query.filter_by(user_id=current_user.id).all()}
+
+    return render_template_string(
+        INDEX_TMPL,
+        events=events, categories=CATEGORIES, areas=AREAS, event_types=EVENT_TYPES,
+        active_cat=cat, area=area, mode=mode, etype=etype, q=q, sort=sort,
+        fav_ids=fav_ids, current_user=current_user
+    )
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
+    error = None
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        if User.query.filter_by(username=username).first(): return "ユーザー名が既に存在します", 400
-        user = User(username=username, password=generate_password_hash(password))
-        db.session.add(user); db.session.commit()
-        login_user(user); return redirect(url_for('index'))
-    return render_template_string(SIGNUP_TEMPLATE)
+        username = request.form.get('username', '').strip()
+        email    = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        if not username or not email or not password:
+            error = '全て入力してください'
+        elif len(password) < 8:
+            error = 'パスワードは8文字以上にしてください'
+        elif User.query.filter_by(email=email).first():
+            error = 'このメールアドレスは既に登録されています'
+        elif User.query.filter_by(username=username).first():
+            error = 'このユーザー名は既に使われています'
+        else:
+            user = User(username=username, email=email,
+                        password=generate_password_hash(password))
+            db.session.add(user)
+            db.session.commit()
+            login_user(user)
+            return redirect(url_for('index'))
+    return render_template_string(AUTH_TMPL, page_title='新規登録', is_signup=True, error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = None
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form.get('username')).first()
-        if user and check_password_hash(user.password, request.form.get('password')):
-            login_user(user); return redirect(url_for('index'))
-    return render_template_string(LOGIN_TEMPLATE)
+        email    = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+        user = User.query.filter_by(email=email).first()
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('index'))
+        error = 'メールアドレスまたはパスワードが間違っています'
+    return render_template_string(AUTH_TMPL, page_title='ログイン', is_signup=False, error=error)
 
 @app.route('/logout')
 def logout():
-    logout_user(); return redirect(url_for('index'))
+    logout_user()
+    return redirect(url_for('index'))
 
 @app.route('/post', methods=['GET', 'POST'])
 @login_required
 def post():
+    error = None
     if request.method == 'POST':
-        image_file = request.files.get('image')
-        image_url = "https://via.placeholder.com/500"
-        if image_file and image_file.filename != '':
-            filename = secure_filename(image_file.filename)
-            upload_dir = os.path.join(app.root_path, 'static', 'images', 'uploads')
-            if not os.path.exists(upload_dir): os.makedirs(upload_dir)
-            image_file.save(os.path.join(upload_dir, filename))
-            image_url = '/static/images/uploads/' + filename
-        
-        event = Event(
-            user_id=current_user.id, title=request.form.get('title'),
-            category=request.form.get('category'), area=request.form.get('area'),
-            location_detail=request.form.get('location_detail'),
-            date=request.form.get('date'), image_url=image_url
-        )
-        db.session.add(event); db.session.commit()
-        return redirect(url_for('index'))
-    return render_template_string(POST_TEMPLATE, categories=categories)
+        title = request.form.get('title', '').strip()
+        cat   = request.form.get('category', '')
+        if not title or not cat:
+            error = 'イベント名とカテゴリは必須です'
+        else:
+            image_url = None
+            image_file = request.files.get('image')
+            if image_file and image_file.filename:
+                filename  = secure_filename(image_file.filename)
+                upload_dir = os.path.join(app.root_path, 'static', 'images', 'uploads')
+                os.makedirs(upload_dir, exist_ok=True)
+                image_file.save(os.path.join(upload_dir, filename))
+                image_url = '/static/images/uploads/' + filename
+
+            event = Event(
+                user_id         = current_user.id,
+                title           = title,
+                category        = cat,
+                area            = request.form.get('area'),
+                location_detail = request.form.get('location_detail'),
+                date            = request.form.get('date'),
+                time            = request.form.get('time'),
+                event_type      = request.form.get('event_type'),
+                mode            = request.form.get('mode', 'オフライン'),
+                description     = request.form.get('description'),
+                emoji           = request.form.get('emoji') or '🌈',
+                image_url       = image_url,
+            )
+            db.session.add(event)
+            db.session.commit()
+            return redirect(url_for('index'))
+
+    tmpl = post_edit_tmpl('イベントを投稿', url_for('post'))
+    return render_template_string(tmpl, error=error)
 
 @app.route('/edit/<int:event_id>', methods=['GET', 'POST'])
 @login_required
 def edit_event(event_id):
     event = Event.query.get_or_404(event_id)
-    if event.user_id != current_user.id: return "権限なし", 403
+    if event.user_id != current_user.id:
+        return '権限がありません', 403
+
+    error = None
     if request.method == 'POST':
-        event.title = request.form.get('title')
-        event.area = request.form.get('area')
-        event.location_detail = request.form.get('location_detail')
-        event.category = request.form.get('category')
+        event.title           = request.form.get('title', event.title).strip()
+        event.category        = request.form.get('category', event.category)
+        event.area            = request.form.get('area', event.area)
+        event.location_detail = request.form.get('location_detail', event.location_detail)
+        event.date            = request.form.get('date', event.date)
+        event.time            = request.form.get('time', event.time)
+        event.event_type      = request.form.get('event_type', event.event_type)
+        event.mode            = request.form.get('mode', event.mode)
+        event.description     = request.form.get('description', event.description)
+        event.emoji           = request.form.get('emoji') or event.emoji
+
         image_file = request.files.get('image')
-        if image_file and image_file.filename != '':
+        if image_file and image_file.filename:
             filename = secure_filename(image_file.filename)
-            image_file.save(os.path.join(app.root_path, 'static', 'images', 'uploads', filename))
+            upload_dir = os.path.join(app.root_path, 'static', 'images', 'uploads')
+            os.makedirs(upload_dir, exist_ok=True)
+            image_file.save(os.path.join(upload_dir, filename))
             event.image_url = '/static/images/uploads/' + filename
-        db.session.commit(); return redirect(url_for('index'))
-    return render_template_string(EDIT_TEMPLATE, event=event, categories=categories)
+
+        db.session.commit()
+        return redirect(url_for('index'))
+
+    tmpl = post_edit_tmpl('イベントを編集', url_for('edit_event', event_id=event_id), event)
+    return render_template_string(tmpl, error=error)
 
 @app.route('/delete/<int:event_id>', methods=['POST'])
 @login_required
 def delete_event(event_id):
     event = Event.query.get_or_404(event_id)
     if event.user_id == current_user.id:
-        db.session.delete(event); db.session.commit()
+        Favorite.query.filter_by(event_id=event_id).delete()
+        db.session.delete(event)
+        db.session.commit()
     return redirect(url_for('index'))
 
+@app.route('/fav/<int:event_id>', methods=['POST'])
+@login_required
+def toggle_fav(event_id):
+    fav = Favorite.query.filter_by(user_id=current_user.id, event_id=event_id).first()
+    if fav:
+        db.session.delete(fav)
+    else:
+        db.session.add(Favorite(user_id=current_user.id, event_id=event_id))
+    db.session.commit()
+    return redirect(request.referrer or url_for('index'))
+
+@app.route('/favorites')
+@login_required
+def favorites():
+    fav_ids = {f.event_id for f in Favorite.query.filter_by(user_id=current_user.id).all()}
+    events  = Event.query.filter(Event.id.in_(fav_ids)).all()
+    return render_template_string(FAVS_TMPL, events=events, current_user=current_user)
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
