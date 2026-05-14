@@ -1,49 +1,53 @@
-import json, os, datetime
+import os
 from flask import Flask, render_template_string, request, redirect, url_for
-from werkzeug.utils import secure_filename
+from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- パス設定 ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-JSON_PATH = os.path.join(BASE_DIR, 'events.json')
-USER_PATH = os.path.join(BASE_DIR, 'users.json')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# --- 🌟 インフラ設定：DBの接続先 ---
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local_test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+# --- 🌟 データモデル（データベースの設計図） ---
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50))
+    area = db.Column(db.String(50)) # 関西・関東など
+    location_detail = db.Column(db.String(200)) # 詳細な場所
+    date = db.Column(db.String(50))
+    image_url = db.Column(db.String(500))
+
+# データベースの初期化
+with app.app_context():
+    db.create_all()
 
 # --- ログイン管理 ---
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-class User(UserMixin):
-    def __init__(self, id, username):
-        self.id, self.username = id, username
-
 @login_manager.user_loader
 def load_user(user_id):
-    users = load_users_data()
-    user_data = next((u for u in users if str(u['id']) == str(user_id)), None)
-    return User(user_data['id'], user_data['username']) if user_data else None
+    return User.query.get(int(user_id))
 
-def load_events():
-    if not os.path.exists(JSON_PATH): return []
-    with open(JSON_PATH, 'r', encoding='utf-8') as f: return json.load(f)
-
-def save_events(events):
-    with open(JSON_PATH, 'w', encoding='utf-8') as f: json.dump(events, f, ensure_ascii=False, indent=2)
-
-def load_users_data():
-    if not os.path.exists(USER_PATH): return []
-    with open(USER_PATH, 'r', encoding='utf-8') as f: return json.load(f)
-
-def save_users_data(users):
-    with open(USER_PATH, 'w', encoding='utf-8') as f: json.dump(users, f, ensure_ascii=False, indent=2)
-
-# カテゴリ定義
+# --- カテゴリ・エリア定義 ---
 categories = [
     {'id': 'all', 'name': 'All / Mix', 'jp': '誰でもOK', 'icon': 'icon_all.png', 'color': '#f8f9fa'},
     {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
@@ -54,13 +58,10 @@ categories = [
     {'id': 'ally', 'name': 'Ally', 'jp': 'アライ', 'icon': 'icon_all.png', 'color': '#fffbeb'},
 ]
 
-# エリア選択肢
-areas = ['関西', '関東', 'オンライン', 'その他']
-
 COMMON_STYLE = '''
 <style>
     :root { --pink: #ff6b81; }
-    body { background-color: #fafbfc; font-family: sans-serif; }
+    body { background-color: #fafbfc; font-family: sans-serif; color: #333; }
     .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
     .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
     .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
@@ -69,10 +70,11 @@ COMMON_STYLE = '''
     .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
     .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .pickup-badge { position: absolute; top: 15px; left: 15px; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-    .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; font-weight: bold; }
+    .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; padding: 10px 20px; font-weight: bold; }
 </style>
 '''
 
+# --- テンプレート (INDEX, POST, EDIT, LOGIN, SIGNUP) ---
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -91,7 +93,7 @@ INDEX_TEMPLATE = '''
                 <a href="/" class="nav-link text-decoration-none me-3" style="color:var(--pink)">イベントを探す</a>
                 <a href="/post" class="nav-link text-decoration-none me-3 text-dark">イベントを投稿</a>
                 {% if current_user.is_authenticated %}
-                    <a href="/logout" class="btn btn-outline-secondary btn-sm rounded-pill">Logout ({{ current_user.username }})</a>
+                    <a href="/logout" class="btn btn-outline-secondary btn-sm rounded-pill small">Logout ({{ current_user.username }})</a>
                 {% else %}
                     <a href="/login" class="btn btn-outline-pink btn-sm me-2">ログイン</a>
                     <a href="/signup" class="btn btn-pink btn-sm">新規登録</a>
@@ -118,8 +120,8 @@ INDEX_TEMPLATE = '''
         <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
             <input type="hidden" name="category" value="{{ active_cat }}">
             <div class="col-6 col-md-2">
-                <select name="area" class="form-select border-0 shadow-sm" style="border-radius:10px; height:45px;" onchange="this.form.submit()">
-                    <option value="">すべてのエリア</option>
+                <select name="area" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
+                    <option value="">エリア</option>
                     {% for a in ['関西', '関東', 'オンライン', 'その他'] %}
                     <option value="{{ a }}" {% if request.args.get('area') == a %}selected{% endif %}>{{ a }}</option>
                     {% endfor %}
@@ -132,7 +134,7 @@ INDEX_TEMPLATE = '''
                 </div>
             </div>
             <div class="col-6 col-md-2 ms-auto">
-                <select name="sort" class="form-select border-0 shadow-sm" style="border-radius:10px; height:45px;" onchange="this.form.submit()">
+                <select name="sort" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
                     <option value="new" {% if request.args.get('sort') == 'new' %}selected{% endif %}>新着順</option>
                     <option value="old" {% if request.args.get('sort') == 'old' %}selected{% endif %}>古い順</option>
                 </select>
@@ -148,11 +150,11 @@ INDEX_TEMPLATE = '''
                     <div class="p-3">
                         <h6 class="fw-bold mb-2 text-truncate">{{ event.title }}</h6>
                         <div class="small text-muted mb-1"><i class="bi bi-calendar"></i> {{ event.date or '日付未設定' }}</div>
-                        <div class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> [{{ event.area }}] {{ event.location_detail }}</div>
+                        <div class="small text-muted mb-3"><i class="bi bi-geo-alt"></i> [{{ event.area or '未設定' }}] {{ event.location_detail }}</div>
                         <div class="d-flex justify-content-between align-items-center mt-auto">
                             <span class="badge rounded-pill bg-light text-primary border px-3 small">{{ event.category }}</span>
-                            {% if current_user.is_authenticated and event.user_id == current_user.id|int %}
-                                <a href="/edit/{{ event.id }}" class="text-muted text-decoration-none"><i class="bi bi-pencil-square"></i></a>
+                            {% if current_user.is_authenticated and event.user_id == current_user.id %}
+                                <a href="/edit/{{ event.id }}" class="text-muted"><i class="bi bi-pencil-square"></i></a>
                             {% endif %}
                         </div>
                     </div>
@@ -185,42 +187,16 @@ POST_TEMPLATE = '''
                     <label class="form-label small fw-bold">エリア</label>
                     <select name="area" class="form-select" required>
                         <option value="">選択してください</option>
-                        <option value="関西">関西</option>
-                        <option value="関東">関東</option>
-                        <option value="オンライン">オンライン</option>
-                        <option value="その他">その他</option>
+                        <option value="関西">関西</option><option value="関東">関東</option>
+                        <option value="オンライン">オンライン</option><option value="その他">その他</option>
                     </select>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">詳細な場所</label>
-                    <input type="text" name="location_detail" class="form-control" placeholder="例: 大阪市北区 / Zoomなど">
-                </div>
+                <div class="mb-3"><label class="form-label small fw-bold">詳細な場所</label><input type="text" name="location_detail" class="form-control" placeholder="例: 大阪市北区 / Zoomなど"></div>
                 <div class="mb-3"><label class="form-label small fw-bold">日付</label><input type="date" name="date" class="form-control"></div>
                 <div class="mb-3"><label class="form-label small fw-bold">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">投稿する</button>
+                <button type="submit" class="btn btn-pink w-100 py-3 mt-3">投稿する</button>
             </form>
             <a href="/" class="d-block text-center mt-3 text-muted small text-decoration-none">キャンセル</a>
-        </div>
-    </div>
-</body>
-</html>
-'''
-
-# (LOGIN_TEMPLATE, SIGNUP_TEMPLATE, EDIT_TEMPLATE も同様に更新)
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width:400px;">
-        <div class="card p-4 shadow border-0" style="border-radius:20px;">
-            <h2 class="fw-bold mb-4">Login</h2>
-            <form method="POST">
-                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
-                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2">ログイン</button>
-            </form>
-            <div class="text-center mt-3"><a href="/signup" class="text-muted small text-decoration-none">新規登録はこちら</a></div>
         </div>
     </div>
 </body>
@@ -241,6 +217,26 @@ SIGNUP_TEMPLATE = '''
                 <button type="submit" class="btn btn-pink w-100 py-2">登録して始める</button>
             </form>
             <div class="text-center mt-3"><a href="/login" class="text-muted small text-decoration-none">ログインはこちら</a></div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
+<body>
+    <div class="container py-5" style="max-width:400px;">
+        <div class="card p-4 shadow border-0" style="border-radius:20px;">
+            <h2 class="fw-bold mb-4">Login</h2>
+            <form method="POST">
+                <div class="mb-3"><input type="text" name="username" class="form-control" placeholder="ユーザー名" required></div>
+                <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
+                <button type="submit" class="btn btn-pink w-100 py-2">ログイン</button>
+            </form>
+            <div class="text-center mt-3"><a href="/signup" class="text-muted small text-decoration-none">新規登録はこちら</a></div>
         </div>
     </div>
 </body>
@@ -278,42 +274,41 @@ EDIT_TEMPLATE = '''
 </html>
 '''
 
-# ルート設定
+# --- ルート設定 (データベース版) ---
 @app.route('/')
 def index():
-    all_events = load_events()
     cat = request.args.get('category', 'all')
     area = request.args.get('area', '')
     query = request.args.get('q', '').lower()
     sort = request.args.get('sort', 'new')
-    filtered = all_events
-    if cat != 'all': filtered = [e for e in filtered if e.get('category') == cat]
-    if area: filtered = [e for e in filtered if e.get('area') == area]
-    if query: filtered = [e for e in filtered if query in e.get('title', '').lower() or query in e.get('location_detail', '').lower()]
-    if sort == 'new': filtered.reverse()
-    return render_template_string(INDEX_TEMPLATE, events=filtered, categories=categories, active_cat=cat, current_user=current_user)
+
+    q = Event.query
+    if cat != 'all': q = q.filter_by(category=cat)
+    if area: q = q.filter_by(area=area)
+    if query: q = q.filter(Event.title.ilike(f'%{query}%') | Event.location_detail.ilike(f'%{query}%'))
+    
+    events = q.all()
+    if sort == 'new': events.reverse()
+    
+    return render_template_string(INDEX_TEMPLATE, events=events, categories=categories, active_cat=cat, current_user=current_user)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        username, password = request.form.get('username'), request.form.get('password')
-        users = load_users_data()
-        if any(u['username'] == username for u in users): return "重複", 400
-        new_id = len(users)+1
-        users.append({"id": new_id, "username": username, "password": generate_password_hash(password)})
-        save_users_data(users)
-        login_user(User(new_id, username))
-        return redirect(url_for('index'))
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if User.query.filter_by(username=username).first(): return "ユーザー名が既に存在します", 400
+        user = User(username=username, password=generate_password_hash(password))
+        db.session.add(user); db.session.commit()
+        login_user(user); return redirect(url_for('index'))
     return render_template_string(SIGNUP_TEMPLATE)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username, password = request.form.get('username'), request.form.get('password')
-        user_data = next((u for u in load_users_data() if u['username'] == username), None)
-        if user_data and check_password_hash(user_data['password'], password):
-            login_user(User(user_data['id'], user_data['username']))
-            return redirect(url_for('index'))
+        user = User.query.filter_by(username=request.form.get('username')).first()
+        if user and check_password_hash(user.password, request.form.get('password')):
+            login_user(user); return redirect(url_for('index'))
     return render_template_string(LOGIN_TEMPLATE)
 
 @app.route('/logout')
@@ -324,52 +319,49 @@ def logout():
 @login_required
 def post():
     if request.method == 'POST':
-        events = load_events()
         image_file = request.files.get('image')
         image_url = "https://via.placeholder.com/500"
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
-            if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
-            image_file.save(os.path.join(UPLOAD_FOLDER, filename))
+            upload_dir = os.path.join(app.root_path, 'static', 'images', 'uploads')
+            if not os.path.exists(upload_dir): os.makedirs(upload_dir)
+            image_file.save(os.path.join(upload_dir, filename))
             image_url = '/static/images/uploads/' + filename
-        events.append({
-            "id": int(os.urandom(4).hex(), 16),
-            "user_id": int(current_user.id),
-            "title": request.form.get('title'),
-            "category": request.form.get('category'),
-            "area": request.form.get('area'), # 🌟 エリア項目追加
-            "location_detail": request.form.get('location_detail'), # 🌟 詳細追加
-            "date": request.form.get('date'),
-            "image_url": image_url
-        })
-        save_events(events)
+        
+        event = Event(
+            user_id=current_user.id, title=request.form.get('title'),
+            category=request.form.get('category'), area=request.form.get('area'),
+            location_detail=request.form.get('location_detail'),
+            date=request.form.get('date'), image_url=image_url
+        )
+        db.session.add(event); db.session.commit()
         return redirect(url_for('index'))
     return render_template_string(POST_TEMPLATE, categories=categories)
 
 @app.route('/edit/<int:event_id>', methods=['GET', 'POST'])
 @login_required
 def edit_event(event_id):
-    events = load_events()
-    event = next((e for e in events if e.get('id') == event_id), None)
-    if not event or event.get('user_id') != int(current_user.id): return "権限なし", 403
+    event = Event.query.get_or_404(event_id)
+    if event.user_id != current_user.id: return "権限なし", 403
     if request.method == 'POST':
-        event['title'] = request.form.get('title')
-        event['area'] = request.form.get('area')
-        event['location_detail'] = request.form.get('location_detail')
-        event['category'] = request.form.get('category')
+        event.title = request.form.get('title')
+        event.area = request.form.get('area')
+        event.location_detail = request.form.get('location_detail')
+        event.category = request.form.get('category')
         image_file = request.files.get('image')
         if image_file and image_file.filename != '':
             filename = secure_filename(image_file.filename)
-            image_file.save(os.path.join(UPLOAD_FOLDER, filename))
-            event['image_url'] = '/static/images/uploads/' + filename
-        save_events(events); return redirect(url_for('index'))
+            image_file.save(os.path.join(app.root_path, 'static', 'images', 'uploads', filename))
+            event.image_url = '/static/images/uploads/' + filename
+        db.session.commit(); return redirect(url_for('index'))
     return render_template_string(EDIT_TEMPLATE, event=event, categories=categories)
 
 @app.route('/delete/<int:event_id>', methods=['POST'])
 @login_required
 def delete_event(event_id):
-    events = load_events()
-    save_events([e for e in events if e.get('id') != event_id])
+    event = Event.query.get_or_404(event_id)
+    if event.user_id == current_user.id:
+        db.session.delete(event); db.session.commit()
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
