@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- 🌟 パス設定 ---
+# --- パス設定 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
@@ -33,7 +33,6 @@ def load_user(user_id):
     if user_data: return User(user_data['id'], user_data['username'])
     return None
 
-# --- データ処理関数 ---
 def load_events():
     if not os.path.exists(JSON_PATH): return []
     with open(JSON_PATH, 'r', encoding='utf-8') as f: return json.load(f)
@@ -50,7 +49,7 @@ def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 カテゴリ定義 ---
+# --- カテゴリ定義 ---
 categories = [
     {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
     {'id': 'gay', 'name': 'Gay', 'jp': 'ゲイ', 'icon': 'icon_gay.png', 'color': '#fff4ec'},
@@ -67,14 +66,12 @@ COMMON_STYLE = '''
     body { background-color: #fafbfc; font-family: sans-serif; color: #333; }
     .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
     .nav-link { color: #555; font-weight: 500; text-decoration: none; margin-left: 20px; }
-    /* カテゴリボタンの調整 */
-    .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100px; border: 2px solid transparent; width: 100%; }
+    /* 🌟 カテゴリボタン：画像とテキストを縦に並べる */
+    .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
     .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
     .cat-card.active { border-color: var(--pink); background-color: #fff !important; }
-    .cat-icon-img { width: 32px; height: 32px; margin-bottom: 8px; }
-    /* 検索バーの調整 */
+    .cat-icon-img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; }
     .search-input { border-radius: 10px; border: 1px solid #ddd; padding: 10px 15px; width: 100%; height: 45px; }
-    /* 投稿カードの調整 */
     .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
     .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .card-img-wrapper { position: relative; width: 100%; height: 200px; }
@@ -114,20 +111,20 @@ INDEX_TEMPLATE = '''
     <div class="container py-5">
         <h2 class="fw-bold mb-4">イベントを探す</h2>
 
-        <!-- 🌟 カテゴリボタン：PCで横一列に並ぶように修正 -->
+        <!-- カテゴリボタン：画像を中に表示 -->
         <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5 flex-nowrap overflow-auto pb-2" style="scrollbar-width: none;">
             {% for cat in categories %}
-            <div class="col" style="min-width: 120px;">
+            <div class="col" style="min-width: 130px;">
                 <a href="/?category={{ cat.id }}" class="cat-card {% if active_cat == cat.id %}active{% endif %}" style="background-color: {{ cat.color }};">
-                    <img src="{{ url_for('static', filename='images/uploads/' + cat.icon) }}" class="cat-icon-img" onerror="this.src='https://via.placeholder.com/32'">
-                    <div class="fw-bold" style="font-size: 13px;">{{ cat.name }}</div>
+                    {# 🌟 画像をボックス内に配置 #}
+                    <img src="{{ url_for('static', filename='images/uploads/' + cat.icon) }}" class="cat-icon-img" onerror="this.src='https://via.placeholder.com/45?text=Icon'">
+                    <div class="fw-bold" style="font-size: 13px; line-height: 1.2;">{{ cat.name }}</div>
                     <div class="text-muted" style="font-size: 10px;">({{ cat.jp }})</div>
                 </a>
             </div>
             {% endfor %}
         </div>
 
-        <!-- 検索・フィルター -->
         <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
             <input type="hidden" name="category" value="{{ active_cat }}">
             <div class="col-6 col-md-2">
@@ -152,7 +149,6 @@ INDEX_TEMPLATE = '''
             </div>
         </form>
 
-        <!-- 🌟 イベント一覧：細長さを解消して綺麗に並べる -->
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
             {% for event in events %}
             <div class="col">
