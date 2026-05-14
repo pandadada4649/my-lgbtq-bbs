@@ -8,11 +8,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- パス設定 ---
+# --- 🌟 パス設定を一番確実に！ ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/images/uploads')
+# 画像の保存先をスクショの場所に合わせる
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # --- ログイン管理 ---
@@ -49,7 +50,7 @@ def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 スクショのファイル名に合わせて修正！ ---
+# --- 🌟 スクショのファイル名とフォルダに完全一致させる ---
 categories = [
     {'id': 'all', 'name': 'All / Mix', 'icon': 'icon_all.png'},
     {'id': 'lesbian', 'name': 'Lesbian', 'icon': 'icon_les.png'},
@@ -68,8 +69,8 @@ COMMON_STYLE = '''
     .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; }
     .btn-pink { background-color: #ff6b81; color: white !important; border-radius: 50px; border: none; }
     .btn-outline-pink { border-color: #ff6b81; color: #ff6b81; border-radius: 50px; }
-    .cat-icon { width: 22px; height: 22px; margin-right: 5px; vertical-align: middle; border-radius: 4px; }
-    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; background: white; border: 1px solid #ff6b81; font-weight: bold; }
+    .cat-icon { width: 22px; height: 22px; margin-right: 8px; vertical-align: middle; border-radius: 4px; }
+    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; background: white; border: 1px solid #ff6b81; font-weight: bold; padding: 10px 20px; }
     .nav-pills .nav-link.active { background-color: #ff6b81 !important; color: white !important; }
 </style>
 '''
@@ -100,8 +101,8 @@ INDEX_TEMPLATE = '''
             {% for cat in categories %}
             <li class="nav-item">
                 <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
-                    {# 🌟 スクショのパス /static/images/uploads/ に合わせて表示！ #}
-                    <img src="/static/images/uploads/{{ cat.icon }}" class="cat-icon"> {{ cat.name }}
+                    {# 🌟 フォルダ構成を修正したパス /static/images/uploads/ #}
+                    <img src="{{ url_for('static', filename='images/uploads/' + cat.icon) }}" class="cat-icon"> {{ cat.name }}
                 </a>
             </li>
             {% endfor %}
@@ -133,6 +134,9 @@ INDEX_TEMPLATE = '''
 </body>
 </html>
 '''
+
+# (以下の signup, login, post, edit 関数などは、最新のロジックを維持してください)
+# (文字数制限のため省略しますが、重要なのは上記のパス設定とINDEX_TEMPLATEの修正です)
 
 # (以降の signup/login/post/edit 関数などは前回の成功版と同じ内容にしてください)
 
