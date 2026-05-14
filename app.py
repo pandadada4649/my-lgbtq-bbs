@@ -12,7 +12,7 @@ app.config['SECRET_KEY'] = 'soyoka-secret-key'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/uploads')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static/images/uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # --- ログイン管理 ---
@@ -49,14 +49,14 @@ def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 カテゴリとアイコン定義（復活！） ---
+# --- 🌟 スクショのファイル名に合わせて修正！ ---
 categories = [
-    {'id': 'all', 'name': 'All / Mix', 'icon': 'all.png'},
-    {'id': 'lesbian', 'name': 'Lesbian', 'icon': 'les.png'},
-    {'id': 'gay', 'name': 'Gay', 'icon': 'gay.png'},
-    {'id': 'bisexual', 'name': 'Bisexual', 'icon': 'bi.png'},
-    {'id': 'transgender', 'name': 'Transgender', 'icon': 'trans.png'},
-    {'id': 'queer', 'name': 'Queer', 'icon': 'queer.png'},
+    {'id': 'all', 'name': 'All / Mix', 'icon': 'icon_all.png'},
+    {'id': 'lesbian', 'name': 'Lesbian', 'icon': 'icon_les.png'},
+    {'id': 'gay', 'name': 'Gay', 'icon': 'icon_gay.png'},
+    {'id': 'bisexual', 'name': 'Bisexual', 'icon': 'icon_bi.png'},
+    {'id': 'transgender', 'name': 'Transgender', 'icon': 'icon_trans.png'},
+    {'id': 'queer', 'name': 'Queer', 'icon': 'icon_queer.png'},
 ]
 
 COMMON_STYLE = '''
@@ -68,13 +68,11 @@ COMMON_STYLE = '''
     .post-button { position: fixed; bottom: 30px; right: 30px; width: 65px; height: 65px; background: #ff6b81; color: #fff !important; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; box-shadow: 0 8px 20px rgba(255,107,129,0.4); text-decoration: none; }
     .btn-pink { background-color: #ff6b81; color: white !important; border-radius: 50px; border: none; }
     .btn-outline-pink { border-color: #ff6b81; color: #ff6b81; border-radius: 50px; }
-    .cat-icon { width: 20px; height: 20px; margin-right: 5px; vertical-align: middle; }
-    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; background: white; border: 1px solid #ff6b81; }
+    .cat-icon { width: 22px; height: 22px; margin-right: 5px; vertical-align: middle; border-radius: 4px; }
+    .nav-pills .nav-link { color: #ff6b81; border-radius: 50px; margin: 0 5px; background: white; border: 1px solid #ff6b81; font-weight: bold; }
     .nav-pills .nav-link.active { background-color: #ff6b81 !important; color: white !important; }
 </style>
 '''
-
-# --- テンプレート ---
 
 INDEX_TEMPLATE = '''
 <!DOCTYPE html>
@@ -102,7 +100,8 @@ INDEX_TEMPLATE = '''
             {% for cat in categories %}
             <li class="nav-item">
                 <a class="nav-link {% if active_cat == cat.id %}active{% endif %}" href="/?category={{ cat.id }}">
-                    <img src="/static/images/{{ cat.icon }}" class="cat-icon"> {{ cat.name }}
+                    {# 🌟 スクショのパス /static/images/uploads/ に合わせて表示！ #}
+                    <img src="/static/images/uploads/{{ cat.icon }}" class="cat-icon"> {{ cat.name }}
                 </a>
             </li>
             {% endfor %}
@@ -135,128 +134,7 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
-# --- ログイン・登録・投稿・編集画面 ---
-
-SIGNUP_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><title>新規登録</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width: 400px;">
-        <div class="card p-4 shadow-sm">
-            <h2 class="mb-4 fw-bold">Signup</h2>
-            <form method="POST">
-                <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">登録する</button>
-            </form>
-            <div class="mt-4 text-center">
-                <p class="small text-muted mb-0">すでにアカウントをお持ちですか？</p>
-                <a href="/login" class="text-decoration-none" style="color: #ff6b81;">ログインはこちら</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-'''
-
-LOGIN_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><title>ログイン</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width: 400px;">
-        <div class="card p-4 shadow-sm">
-            <h2 class="mb-4 fw-bold">Login</h2>
-            <form method="POST">
-                <div class="mb-3"><label class="form-label">ユーザー名</label><input type="text" name="username" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">パスワード</label><input type="password" name="password" class="form-control" required></div>
-                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">ログイン</button>
-            </form>
-            <div class="mt-4 text-center">
-                <p class="small text-muted mb-0">初めてご利用ですか？</p>
-                <a href="/signup" class="text-decoration-none" style="color: #ff6b81;">新規登録はこちら</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-'''
-
-POST_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><title>新規投稿</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width: 600px;">
-        <div class="card p-5 shadow">
-            <h2 class="mb-4 fw-bold">イベントを投稿</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">カテゴリ</label>
-                    <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">投稿する</button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>
-'''
-
-EDIT_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><title>編集</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width: 600px;">
-        <div class="card p-5 shadow">
-            <h2 class="mb-4 fw-bold">投稿を編集</h2>
-            <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
-                <div class="mb-3"><label class="form-label">カテゴリ</label>
-                    <select name="category" class="form-select">
-                        {% for cat in categories if cat.id != 'all' %}
-                        <option value="{{ cat.id }}" {% if event.category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
-                <div class="mb-3">
-                    <label class="form-label">画像を変更</label><br>
-                    <input type="file" name="image" class="form-control">
-                </div>
-                <button type="submit" class="btn btn-pink w-100 py-2 fw-bold">更新する</button>
-            </form>
-        </div>
-    </div>
-</body>
-</html>
-'''
-
-DETAIL_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="ja">
-<head><meta charset="UTF-8"><title>{{ event.title }}</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">''' + COMMON_STYLE + '''</head>
-<body>
-    <div class="container py-5" style="max-width: 800px;">
-        <div class="card overflow-hidden shadow">
-            <img src="{{ event.image_url }}" class="w-100" style="height:400px; object-fit:cover;">
-            <div class="p-5">
-                <h1 class="fw-bold mb-3">{{ event.title }}</h1>
-                <p class="text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</p>
-                <hr class="my-5">
-                <a href="/" class="btn btn-outline-secondary rounded-pill">戻る</a>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-'''
+# (以降の signup/login/post/edit 関数などは前回の成功版と同じ内容にしてください)
 
 # --- ルート設定（ここから下は前回と同じです） ---
 
