@@ -7,11 +7,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'soyoka-secret-key'
 
-# --- パス設定：スクショに合わせて修正！ ---
+# --- 🌟 パス設定 ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 JSON_PATH = os.path.join(BASE_DIR, 'events.json')
 USER_PATH = os.path.join(BASE_DIR, 'users.json')
-# 投稿用画像は uploads へ
+# 投稿用画像は uploads へ、カテゴリ用は images 直下
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -44,15 +44,15 @@ def load_users_data():
 def save_users_data(users):
     with open(USER_PATH, 'w', encoding='utf-8') as f: json.dump(users, f, ensure_ascii=False, indent=2)
 
-# --- 🌟 カテゴリ定義：スクショのファイル名に完全一致！ ---
+# --- 🌟 カテゴリ定義：All / Mix を先頭に移動しました！ ---
 categories = [
+    {'id': 'all', 'name': 'All / Mix', 'jp': '誰でもOK', 'icon': 'icon_all.png', 'color': '#f8f9fa'},
     {'id': 'lesbian', 'name': 'Lesbian', 'jp': 'レズビアン', 'icon': 'icon_les.png', 'color': '#fff0f3'},
     {'id': 'gay', 'name': 'Gay', 'jp': 'ゲイ', 'icon': 'icon_gay.png', 'color': '#fff4ec'},
     {'id': 'bisexual', 'name': 'Bisexual', 'jp': 'バイセクシュアル', 'icon': 'icon_bi.png', 'color': '#f3f0ff'},
     {'id': 'transgender', 'name': 'Transgender', 'jp': 'トランスジェンダー', 'icon': 'icon_trans.png', 'color': '#eef9ff'},
     {'id': 'queer', 'name': 'Queer', 'jp': 'クィア', 'icon': 'icon_queer.png', 'color': '#f0fff4'},
     {'id': 'ally', 'name': 'Ally', 'jp': 'アライ', 'icon': 'icon_all.png', 'color': '#fffbeb'},
-    {'id': 'all', 'name': 'All / Mix', 'jp': '誰でもOK', 'icon': 'icon_all.png', 'color': '#f8f9fa'},
 ]
 
 COMMON_STYLE = '''
@@ -60,11 +60,13 @@ COMMON_STYLE = '''
     :root { --pink: #ff6b81; }
     body { background-color: #fafbfc; font-family: sans-serif; }
     .nav-bar { background: #fff; border-bottom: 1px solid #eee; padding: 15px 0; }
+    /* カテゴリボタン：PCで横一列、中身に画像を表示 */
     .cat-card { border: none; border-radius: 16px; padding: 10px; text-decoration: none; color: #333; transition: 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px solid transparent; width: 100%; }
     .cat-card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
     .cat-card.active { border-color: var(--pink); background-color: #fff !important; }
     .cat-icon-img { width: 45px; height: 45px; object-fit: contain; margin-bottom: 8px; }
-    .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; }
+    /* カードの細長さを解消 */
+    .event-card { border: none; border-radius: 20px; overflow: hidden; background: #fff; transition: 0.3s; height: 100%; display: flex; flex-direction: column; }
     .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .pickup-badge { position: absolute; top: 15px; left: 15px; background: var(--pink); color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
     .btn-pink { background: var(--pink); color: #fff; border-radius: 50px; border: none; font-weight: bold; }
@@ -100,7 +102,7 @@ INDEX_TEMPLATE = '''
     <div class="container pb-5">
         <h2 class="fw-bold mb-4">イベントを探す</h2>
 
-        <!-- 🌟 カテゴリボタン：パスを /static/images/ に修正！ -->
+        <!-- カテゴリボタン：All/Mix が最初に来ます -->
         <div class="row row-cols-2 row-cols-md-4 row-cols-lg-7 g-3 mb-5">
             {% for cat in categories %}
             <div class="col">
@@ -113,11 +115,11 @@ INDEX_TEMPLATE = '''
             {% endfor %}
         </div>
 
-        <!-- 検索フォーム -->
+        <!-- 検索バー -->
         <form action="/" method="GET" class="row g-3 mb-5 align-items-center">
             <input type="hidden" name="category" value="{{ active_cat }}">
             <div class="col-6 col-md-2">
-                <select name="area" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
+                <select name="area" class="form-select border-0 shadow-sm" style="border-radius:10px; height:45px;" onchange="this.form.submit()">
                     <option value="">エリア</option>
                     <option value="東京" {% if request.args.get('area') == '東京' %}selected{% endif %}>東京</option>
                     <option value="大阪" {% if request.args.get('area') == '大阪' %}selected{% endif %}>大阪</option>
@@ -131,13 +133,14 @@ INDEX_TEMPLATE = '''
                 </div>
             </div>
             <div class="col-6 col-md-2 ms-auto">
-                <select name="sort" class="form-select border-0 shadow-sm" onchange="this.form.submit()">
+                <select name="sort" class="form-select border-0 shadow-sm" style="border-radius:10px; height:45px;" onchange="this.form.submit()">
                     <option value="new" {% if request.args.get('sort') == 'new' %}selected{% endif %}>新着順</option>
                     <option value="old" {% if request.args.get('sort') == 'old' %}selected{% endif %}>古い順</option>
                 </select>
             </div>
         </form>
 
+        <!-- 投稿カード -->
         <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
             {% for event in events %}
             <div class="col">
@@ -165,6 +168,7 @@ INDEX_TEMPLATE = '''
 </html>
 '''
 
+# --- (SIGNUP, LOGIN, POST, EDIT のテンプレートは最新のものを維持) ---
 SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="ja">
@@ -178,7 +182,7 @@ SIGNUP_TEMPLATE = '''
                 <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
                 <button type="submit" class="btn btn-pink w-100 py-2">登録して始める</button>
             </form>
-            <div class="text-center mt-3"><a href="/login" class="text-muted small">ログインはこちら</a></div>
+            <div class="text-center mt-3"><a href="/login" class="text-muted small text-decoration-none">ログインはこちら</a></div>
         </div>
     </div>
 </body>
@@ -198,7 +202,7 @@ LOGIN_TEMPLATE = '''
                 <div class="mb-3"><input type="password" name="password" class="form-control" placeholder="パスワード" required></div>
                 <button type="submit" class="btn btn-pink w-100 py-2">ログイン</button>
             </form>
-            <div class="text-center mt-3"><a href="/signup" class="text-muted small">新規登録はこちら</a></div>
+            <div class="text-center mt-3"><a href="/signup" class="text-muted small text-decoration-none">新規登録はこちら</a></div>
         </div>
     </div>
 </body>
@@ -214,17 +218,18 @@ POST_TEMPLATE = '''
         <div class="card p-5 shadow border-0" style="border-radius:20px;">
             <h2 class="fw-bold mb-4">イベントを投稿</h2>
             <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" required></div>
-                <div class="mb-3"><label class="form-label">カテゴリ</label>
+                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" required></div>
+                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
                     <select name="category" class="form-select">
                         {% for cat in categories if cat.id != 'all' %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
                     </select>
                 </div>
-                <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" placeholder="例: 大阪・梅田"></div>
-                <div class="mb-3"><label class="form-label">日付</label><input type="date" name="date" class="form-control"></div>
-                <div class="mb-3"><label class="form-label">画像</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3">投稿する</button>
+                <div class="mb-3"><label class="form-label small fw-bold">場所</label><input type="text" name="location" class="form-control" placeholder="例: 大阪・梅田"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">日付</label><input type="date" name="date" class="form-control"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">画像</label><input type="file" name="image" class="form-control"></div>
+                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">投稿する</button>
             </form>
+            <a href="/" class="d-block text-center mt-3 text-muted small text-decoration-none">キャンセル</a>
         </div>
     </div>
 </body>
@@ -240,27 +245,29 @@ EDIT_TEMPLATE = '''
         <div class="card p-5 shadow border-0" style="border-radius:20px;">
             <h2 class="fw-bold mb-4">編集する</h2>
             <form method="POST" enctype="multipart/form-data">
-                <div class="mb-3"><label class="form-label">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
-                <div class="mb-3"><label class="form-label">カテゴリ</label>
+                <div class="mb-3"><label class="form-label small fw-bold">タイトル</label><input type="text" name="title" class="form-control" value="{{ event.title }}" required></div>
+                <div class="mb-3"><label class="form-label small fw-bold">カテゴリ</label>
                     <select name="category" class="form-select">
                         {% for cat in categories if cat.id != 'all' %}
                         <option value="{{ cat.id }}" {% if event.category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="mb-3"><label class="form-label">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
-                <div class="mb-3"><label class="form-label">画像を変更</label><input type="file" name="image" class="form-control"></div>
-                <button type="submit" class="btn btn-pink w-100 py-3 mt-3">更新する</button>
+                <div class="mb-3"><label class="form-label small fw-bold">場所</label><input type="text" name="location" class="form-control" value="{{ event.location }}"></div>
+                <div class="mb-3"><label class="form-label small fw-bold">画像を変更</label><input type="file" name="image" class="form-control"></div>
+                <button type="submit" class="btn btn-pink w-100 py-3 mt-3 shadow-sm">更新する</button>
             </form>
             <form action="/delete/{{ event.id }}" method="POST" class="mt-3" onsubmit="return confirm('本当に削除しますか？')">
-                <button type="submit" class="btn btn-link w-100 text-danger text-decoration-none">削除する</button>
+                <button type="submit" class="btn btn-link w-100 text-danger text-decoration-none small">この投稿を削除する</button>
             </form>
+            <a href="/" class="d-block text-center mt-1 text-muted small text-decoration-none">キャンセル</a>
         </div>
     </div>
 </body>
 </html>
 '''
 
+# --- ルート設定 ---
 @app.route('/')
 def index():
     all_events = load_events()
