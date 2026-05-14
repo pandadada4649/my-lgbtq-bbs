@@ -1,0 +1,9 @@
+# リポジトリをクローン
+git clone https://github.com/pandadada4649/my-lgbtq-bbs.git
+cd my-lgbtq-bbs
+
+# パッケージをインストール
+pip3 install -r requirements.txt
+
+# サーバーを起動
+python3 app.py
