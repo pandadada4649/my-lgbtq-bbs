@@ -496,6 +496,9 @@ ADMIN_TMPL = '''<!DOCTYPE html>
     <button class="btn btn-primary" style="width:100%;padding:12px" onclick="fetchUrl()">
       🔍 情報を読み取る
     </button>
+    <button class="btn btn-outline" style="width:100%;padding:12px;margin-top:8px" onclick="showManual()">
+      ✏️ 手動で入力する
+    </button>
     <div id="loadingMsg" style="display:none;text-align:center;margin-top:12px;color:#888;font-size:.85rem">読み取り中...</div>
     <div id="errorMsg" class="error" style="display:none;margin-top:12px"></div>
   </div>
@@ -583,6 +586,16 @@ ADMIN_TMPL = '''<!DOCTYPE html>
 </main>
 
 <script>
+function showManual() {
+  document.getElementById('rTitle').value = '';
+  document.getElementById('rDate').value = '';
+  document.getElementById('rTime').value = '';
+  document.getElementById('rPlace').value = '';
+  document.getElementById('rDesc').value = '';
+  document.getElementById('sourceUrl').value = '';
+  document.getElementById('resultForm').style.display = 'block';
+  document.getElementById('resultForm').scrollIntoView({behavior:'smooth'});
+}
 async function fetchUrl() {
   const url = document.getElementById('urlInput').value.trim();
   if (!url) return;
