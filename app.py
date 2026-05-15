@@ -59,13 +59,20 @@ def load_user(user_id):
 
 # --- 定数 ---
 CATEGORIES = [
-    {'id': 'Lesbian',    'ja': 'レズビアン',    'icon': '🩷', 'color': '#e84393', 'bg': '#fce7f3'},
-    {'id': 'Gay',        'ja': 'ゲイ',          'icon': '🧡', 'color': '#f97316', 'bg': '#fff7ed'},
-    {'id': 'Bisexual',   'ja': 'バイセクシュアル','icon': '💜', 'color': '#a855f7', 'bg': '#faf5ff'},
-    {'id': 'Transgender','ja': 'トランスジェンダー','icon':'⚡', 'color': '#3b82f6', 'bg': '#eff6ff'},
-    {'id': 'Queer',      'ja': 'クィア',        'icon': '🌿', 'color': '#22c55e', 'bg': '#f0fdf4'},
-    {'id': 'Ally',       'ja': 'アライ',        'icon': '⭐', 'color': '#eab308', 'bg': '#fefce8'},
-    {'id': 'All / Mix',  'ja': '誰でもOK',      'icon': '🌈', 'color': '#7c3aed', 'bg': '#f5f3ff'},
+    {'id': 'Lesbian',    'ja': 'レズビアン',       'color': '#db2777', 'bg': '#fdf2f8', 'border': '#f9a8d4', 'ibg': '#fce7f3', 'sub': '#f472b6',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="#f472b6" stroke="#ec4899" stroke-width="1.5"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'},
+    {'id': 'Gay',        'ja': 'ゲイ',             'color': '#c2410c', 'bg': '#fff7ed', 'border': '#fed7aa', 'ibg': '#ffedd5', 'sub': '#fb923c',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'},
+    {'id': 'Bisexual',   'ja': 'バイセクシュアル',  'color': '#7e22ce', 'bg': '#faf5ff', 'border': '#d8b4fe', 'ibg': '#f3e8ff', 'sub': '#a855f7',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9333ea" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'},
+    {'id': 'Transgender','ja': 'トランスジェンダー', 'color': '#1d4ed8', 'bg': '#eff6ff', 'border': '#bfdbfe', 'ibg': '#dbeafe', 'sub': '#60a5fa',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></svg>'},
+    {'id': 'Queer',      'ja': 'クィア',           'color': '#15803d', 'bg': '#f0fdf4', 'border': '#bbf7d0', 'ibg': '#dcfce7', 'sub': '#4ade80',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>'},
+    {'id': 'Ally',       'ja': 'アライ',           'color': '#a16207', 'bg': '#fefce8', 'border': '#fde68a', 'ibg': '#fef9c3', 'sub': '#facc15',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ca8a04" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'},
+    {'id': 'All / Mix',  'ja': '誰でもOK',         'color': '#a21caf', 'bg': '#fdf4ff', 'border': '#f0abfc', 'ibg': '#fae8ff', 'sub': '#e879f9',
+     'svg': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c026d3" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'},
 ]
 EVENT_TYPES = ['パレード', '交流会', 'サポート', 'パーティー', '講演']
 AREAS       = ['東京', '大阪', '名古屋', '福岡', 'オンライン', 'その他']
@@ -77,7 +84,11 @@ STYLE = '''
 body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f7f8fc;color:#333;min-height:100vh}
 a{text-decoration:none;color:inherit}
 header{background:#fff;border-bottom:1px solid #eee;padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.logo{font-size:1.1rem;font-weight:700;background:linear-gradient(90deg,#e40303,#ff8c00,#ffed00,#008026,#004dff,#750787);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-icon{width:38px;height:38px;border-radius:10px;background:#fce7f3;border:0.5px solid #f9a8d4;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.logo-text{font-size:1rem;font-weight:500;color:var(--color-text-primary,#333)}
+.logo-bar{display:flex;gap:4px;margin-top:3px}
+.logo-bar span{width:12px;height:3px;border-radius:2px;display:inline-block}
 nav{display:flex;gap:16px;align-items:center}
 nav a.nav-link{color:#555;font-size:.9rem;padding:4px 0;border-bottom:2px solid transparent;transition:.2s}
 nav a.nav-link.active,nav a.nav-link:hover{color:#7c3aed;border-bottom-color:#7c3aed}
@@ -99,11 +110,11 @@ h2{font-size:1.3rem;font-weight:700;margin-bottom:16px}
 /* cats — 横スクロール */
 .cats{display:flex;gap:10px;margin-bottom:16px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.cat{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 14px;border-radius:12px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:72px;flex-shrink:0;transition:.2s;text-decoration:none;color:inherit}
-.cat:hover,.cat.active{border-color:var(--c);background:var(--bg)}
-.cat-icon{font-size:1.3rem}
-.cat-en{font-size:.72rem;font-weight:700;color:var(--c)}
-.cat-ja{font-size:.65rem;color:#888}
+.cat{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 14px;border-radius:14px;border:1.5px solid #eee;background:#fff;cursor:pointer;min-width:76px;flex-shrink:0;transition:.2s;text-decoration:none;color:inherit}
+.cat:hover,.cat.active{border-color:var(--border);background:var(--bg)}
+.cat-icon-wrap{width:36px;height:36px;border-radius:50%;background:var(--ibg);display:flex;align-items:center;justify-content:center;transition:.2s}
+.cat-en{font-size:.72rem;font-weight:600;color:var(--c)}
+.cat-ja{font-size:.62rem;color:var(--sub)}
 /* filters */
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filter-select{padding:8px 12px;border:1px solid #ddd;border-radius:20px;background:#fff;font-size:.82rem;cursor:pointer;outline:none}
@@ -165,7 +176,17 @@ INDEX_TMPL = '''<!DOCTYPE html>
 <title>LGBTQ+ Event Board 🌈</title>''' + STYLE + '''</head>
 <body>
 <header>
-  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+  <a class="logo" href="/">
+    <div class="logo-icon">🏳️‍🌈</div>
+    <div>
+      <div class="logo-text">LGBTQ+ Event Board</div>
+      <div class="logo-bar">
+        <span style="background:#f472b6"></span><span style="background:#fb923c"></span>
+        <span style="background:#facc15"></span><span style="background:#4ade80"></span>
+        <span style="background:#60a5fa"></span><span style="background:#a78bfa"></span>
+      </div>
+    </div>
+  </a>
   <nav>
     <a href="/" class="nav-link active">イベントを探す</a>
     <a href="{{ url_for('post') }}" class="nav-link">イベントを投稿</a>
@@ -214,16 +235,20 @@ document.addEventListener('click', function(e){
   <h2>イベントを探す</h2>
   <!-- カテゴリ -->
   <div class="cats">
-    <a href="/" class="cat {% if not active_cat %}active{% endif %}" style="--c:#7c3aed;--bg:#f5f3ff">
-      <span class="cat-icon">✨</span>
-      <span class="cat-en" style="color:#7c3aed">All</span>
+    <a href="/" class="cat {% if not active_cat %}active{% endif %}"
+       style="--c:#7c3aed;--bg:#f5f3ff;--border:#c4b5fd;--ibg:#ede9fe;--sub:#a78bfa">
+      <div class="cat-icon-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+      </div>
+      <span class="cat-en">All</span>
       <span class="cat-ja">すべて</span>
     </a>
     {% for c in categories %}
     <a href="/?cat={{ c.id }}&area={{ area }}&mode={{ mode }}&type={{ etype }}&q={{ q }}&sort={{ sort }}"
-       class="cat {% if active_cat == c.id %}active{% endif %}" style="--c:{{ c.color }};--bg:{{ c.bg }}">
-      <span class="cat-icon">{{ c.icon }}</span>
-      <span class="cat-en" style="color:{{ c.color }}">{{ c.id }}</span>
+       class="cat {% if active_cat == c.id %}active{% endif %}"
+       style="--c:{{ c.color }};--bg:{{ c.bg }};--border:{{ c.border }};--ibg:{{ c.ibg }};--sub:{{ c.sub }}">
+      <div class="cat-icon-wrap">{{ c.svg | safe }}</div>
+      <span class="cat-en">{{ c.id }}</span>
       <span class="cat-ja">{{ c.ja }}</span>
     </a>
     {% endfor %}
