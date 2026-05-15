@@ -610,8 +610,10 @@ async function fetchUrl() {
     });
     const data = await res.json();
     if (data.error) {
-      document.getElementById('errorMsg').textContent = data.error;
+      document.getElementById('errorMsg').textContent = '読み取りに失敗しました。手動で入力してください。';
       document.getElementById('errorMsg').style.display = 'block';
+      // 失敗したら自動で手動フォームを開く
+      showManual();
     } else {
       document.getElementById('rTitle').value    = data.title || '';
       document.getElementById('rDate').value     = data.date || '';
@@ -627,8 +629,10 @@ async function fetchUrl() {
       document.getElementById('resultForm').style.display = 'block';
     }
   } catch(e) {
-    document.getElementById('errorMsg').textContent = '読み取りに失敗しました';
+    document.getElementById('errorMsg').textContent = '読み取りに失敗しました。手動で入力してください。';
     document.getElementById('errorMsg').style.display = 'block';
+    // 失敗したら自動で手動フォームを開く
+    showManual();
   }
   document.getElementById('loadingMsg').style.display = 'none';
 }
