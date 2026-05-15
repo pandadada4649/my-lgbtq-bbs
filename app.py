@@ -60,13 +60,20 @@ def load_user(user_id):
 
 # --- 定数 ---
 CATEGORIES = [
-    {'id': 'Lesbian',    'ja': 'レズビアン',       'icon': '🩷', 'color': '#e84393', 'bg': '#fce7f3'},
-    {'id': 'Gay',        'ja': 'ゲイ',             'icon': '🧡', 'color': '#f97316', 'bg': '#fff7ed'},
-    {'id': 'Bisexual',   'ja': 'バイセクシュアル',  'icon': '💜', 'color': '#a855f7', 'bg': '#faf5ff'},
-    {'id': 'Transgender','ja': 'トランスジェンダー','icon': '⚡', 'color': '#3b82f6', 'bg': '#eff6ff'},
-    {'id': 'Queer',      'ja': 'クィア',           'icon': '🌿', 'color': '#22c55e', 'bg': '#f0fdf4'},
-    {'id': 'Ally',       'ja': 'アライ',           'icon': '⭐', 'color': '#eab308', 'bg': '#fefce8'},
-    {'id': 'All / Mix',  'ja': '誰でもOK',         'icon': '🌈', 'color': '#7c3aed', 'bg': '#f5f3ff'},
+    {'id': 'Lesbian',    'ja': 'レズビアン',       'color': '#e84393', 'bg': '#fce7f3',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><path d="M14 7C14 7 7 11.5 7 16.5C7 20.09 10.13 23 14 23C17.87 23 21 20.09 21 16.5C21 11.5 14 7 14 7Z" fill="#f472b6"/><path d="M14 23V26M11 24.5H17" stroke="#e84393" stroke-width="2" stroke-linecap="round"/></svg>'},
+    {'id': 'Gay',        'ja': 'ゲイ',             'color': '#f97316', 'bg': '#fff7ed',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><circle cx="12" cy="14" r="7" stroke="#f97316" stroke-width="2"/><path d="M17 9L24 2M24 2H19M24 2V7" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'},
+    {'id': 'Bisexual',   'ja': 'バイセクシュアル',  'color': '#a855f7', 'bg': '#faf5ff',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><circle cx="11" cy="14" r="7" fill="#ec4899" fill-opacity=".55"/><circle cx="17" cy="14" r="7" fill="#7c3aed" fill-opacity=".55"/></svg>'},
+    {'id': 'Transgender','ja': 'トランスジェンダー','color': '#3b82f6', 'bg': '#eff6ff',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="6" stroke="#3b82f6" stroke-width="2"/><path d="M14 8V5M11 5H17" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/><path d="M14 20V23M11 23H17" stroke="#f9a8d4" stroke-width="2" stroke-linecap="round"/><path d="M20 8L22 6M22 6H20M22 6V8" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round"/><path d="M8 8L6 6M6 6H8M6 6V8" stroke="#f9a8d4" stroke-width="1.5" stroke-linecap="round"/></svg>'},
+    {'id': 'Queer',      'ja': 'クィア',           'color': '#22c55e', 'bg': '#f0fdf4',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><path d="M14 4C14 4 8 9 8 15C8 18.31 10.69 21 14 21C17.31 21 20 18.31 20 15C20 9 14 4 14 4Z" fill="#86efac" stroke="#22c55e" stroke-width="1.5"/><path d="M14 21V25" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/><path d="M11 13C11 13 12.5 15 14 15C15.5 15 17 13 17 13" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>'},
+    {'id': 'Ally',       'ja': 'アライ',           'color': '#eab308', 'bg': '#fefce8',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><path d="M14 3L16.8 9.8L24 10.4L18.7 15.1L20.4 22L14 18.3L7.6 22L9.3 15.1L4 10.4L11.2 9.8L14 3Z" fill="#fde68a" stroke="#f59e0b" stroke-width="1.5" stroke-linejoin="round"/></svg>'},
+    {'id': 'All / Mix',  'ja': '誰でもOK',         'color': '#7c3aed', 'bg': '#f5f3ff',
+     'svg': '<svg viewBox="0 0 28 28" fill="none"><path d="M14 4C8.48 4 4 8.48 4 14C4 19.52 8.48 24 14 24C19.52 24 24 19.52 24 14C24 8.48 19.52 4 14 4Z" stroke="#7c3aed" stroke-width="1.5"/><path d="M4 14H24" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="2 2"/><path d="M14 4C14 4 10 9 10 14C10 19 14 24 14 24" stroke="#ec4899" stroke-width="1.5"/><path d="M14 4C14 4 18 9 18 14C18 19 14 24 14 24" stroke="#60a5fa" stroke-width="1.5"/></svg>'},
 ]
 EVENT_TYPES = ['パレード', '交流会', 'サポート', 'パーティー', '講演']
 AREAS       = ['東京', '大阪', '名古屋', '福岡', 'オンライン', 'その他']
@@ -78,7 +85,11 @@ STYLE = '''
 body{font-family:'Helvetica Neue',Arial,sans-serif;background:#f7f8fc;color:#333;min-height:100vh}
 a{text-decoration:none;color:inherit}
 header{background:#fff;border-bottom:1px solid #eee;padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.04)}
-.logo{font-size:1.1rem;font-weight:700;background:linear-gradient(90deg,#e40303,#ff8c00,#ffed00,#008026,#004dff,#750787);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,#fda4af,#c084fc,#7dd3fc);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;box-shadow:0 3px 10px rgba(192,132,252,.35);flex-shrink:0}
+.logo-text{display:flex;flex-direction:column;line-height:1.2}
+.logo-main{font-size:1rem;font-weight:800;background:linear-gradient(90deg,#f472b6,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap}
+.logo-sub{font-size:.6rem;color:#c4b5d5;font-weight:500;letter-spacing:.08em}
 nav{display:flex;gap:16px;align-items:center}
 nav a.nav-link{color:#555;font-size:.9rem;padding:4px 0;border-bottom:2px solid transparent;transition:.2s}
 nav a.nav-link.active,nav a.nav-link:hover{color:#7c3aed;border-bottom-color:#7c3aed}
@@ -98,11 +109,11 @@ main{max-width:1200px;margin:0 auto;padding:24px 16px}
 h2{font-size:1.3rem;font-weight:700;margin-bottom:16px}
 .cats{display:flex;gap:10px;margin-bottom:16px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.cat{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 14px;border-radius:12px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:72px;flex-shrink:0;transition:.2s;text-decoration:none;color:inherit}
+.cat{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 16px;border-radius:16px;border:2px solid #eee;background:#fff;cursor:pointer;min-width:88px;flex-shrink:0;transition:.2s;text-decoration:none;color:inherit}
 .cat:hover,.cat.active{border-color:var(--c);background:var(--bg)}
-.cat-icon{font-size:1.3rem}
-.cat-en{font-size:.72rem;font-weight:700;color:var(--c)}
-.cat-ja{font-size:.65rem;color:#888}
+.cat-icon-wrap{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.cat-en{font-size:.78rem;font-weight:700;color:var(--c)}
+.cat-ja{font-size:.68rem;color:#888}
 .filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .filter-select{padding:8px 12px;border:1px solid #ddd;border-radius:20px;background:#fff;font-size:.82rem;cursor:pointer;outline:none}
 .filter-select:focus{border-color:#7c3aed}
@@ -158,7 +169,13 @@ INDEX_TMPL = '''<!DOCTYPE html>
 <title>LGBTQ+ Event Board 🌈</title>''' + STYLE + '''</head>
 <body>
 <header>
-  <a class="logo" href="/">LGBTQ+ Event Board 🌈</a>
+  <a class="logo" href="/">
+    <div class="logo-icon">🌈</div>
+    <div class="logo-text">
+      <span class="logo-main">LGBTQ+ Event Board</span>
+      <span class="logo-sub">COMMUNITY EVENTS</span>
+    </div>
+  </a>
   <nav>
     <a href="/" class="nav-link active">イベントを探す</a>
     <a href="{{ url_for('post') }}" class="nav-link">イベントを投稿</a>
@@ -209,14 +226,20 @@ document.addEventListener('click', function(e){
   <h2>イベントを探す</h2>
   <div class="cats">
     <a href="/" class="cat {% if not active_cat %}active{% endif %}" style="--c:#7c3aed;--bg:#f5f3ff">
-      <span class="cat-icon">✨</span>
+      <div class="cat-icon-wrap" style="background:#f5f3ff">
+        <svg viewBox="0 0 28 28" width="28" height="28" fill="none">
+          <path d="M14 3L16.8 9.8L24 10.4L18.7 15.1L20.4 22L14 18.3L7.6 22L9.3 15.1L4 10.4L11.2 9.8L14 3Z" fill="#ddd6fe" stroke="#7c3aed" stroke-width="1.5" stroke-linejoin="round"/>
+        </svg>
+      </div>
       <span class="cat-en" style="color:#7c3aed">All</span>
       <span class="cat-ja">すべて</span>
     </a>
     {% for c in categories %}
     <a href="/?cat={{ c.id }}&area={{ area }}&mode={{ mode }}&type={{ etype }}&q={{ q }}&sort={{ sort }}"
        class="cat {% if active_cat == c.id %}active{% endif %}" style="--c:{{ c.color }};--bg:{{ c.bg }}">
-      <span class="cat-icon">{{ c.icon }}</span>
+      <div class="cat-icon-wrap" style="background:{{ c.bg }}">
+        {{ c.svg | safe }}
+      </div>
       <span class="cat-en" style="color:{{ c.color }}">{{ c.id }}</span>
       <span class="cat-ja">{{ c.ja }}</span>
     </a>
