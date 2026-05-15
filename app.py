@@ -170,7 +170,11 @@ INDEX_TMPL = '''<!DOCTYPE html>
 <body>
 <header>
   <a class="logo" href="/">
-    <div class="logo-icon">🌈</div>
+    <div class="logo-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M12 21C12 21 3 14 3 8.5C3 5.42 5.42 3 8.5 3C10.24 3 11.8 3.85 12 5C12.2 3.85 13.76 3 15.5 3C18.58 3 21 5.42 21 8.5C21 14 12 21 12 21Z" fill="white"/>
+      </svg>
+    </div>
     <div class="logo-text">
       <span class="logo-main">LGBTQ+ Event Board</span>
       <span class="logo-sub">COMMUNITY EVENTS</span>
